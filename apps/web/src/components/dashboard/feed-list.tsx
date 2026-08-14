@@ -1,10 +1,11 @@
 "use client";
 
 import { TabGroup } from "@headlessui/react";
-import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Tabs, TabItem } from "@/components/ui/tabs";
-import { FeedItem, type FeedEntry, type FeedKind } from "./feed-item";
+import { VirtualFeed } from "./virtual-feed";
+import { useFeed, useInfinitePosts } from "@/lib/queries";
+import type { FeedKind } from "./feed-item";
 
 const FILTERS: { label: string; kind: FeedKind | "all" }[] = [
   { label: "All", kind: "all" },
@@ -13,20 +14,49 @@ const FILTERS: { label: string; kind: FeedKind | "all" }[] = [
   { label: "Posts", kind: "post" },
 ];
 
-export function FeedList({ entries }: { entries: FeedEntry[] }) {
+/*
+ * The feed list: server-paged, infinitely scrolling and virtualized.
+ *
+ * Filtering moved server-side with paging — filtering the client array would
+ * only ever see the pages already loaded. The tab counts still come from the
+ * flat useFeed cache, which is the whole set rather than page one.
+ */
+export function FeedList({
+  scrollRef,
+}: {
+  scrollRef: React.RefObject<HTMLElement | null>;
+}) {
   const [filter, setFilter] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
+  const kind = FILTERS[filter].kind;
 
+  const params = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (kind !== "all") next.kind = kind;
+    return next;
+  }, [kind]);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfinitePosts(params);
+
+  const entries = useMemo(
+    () => data?.pages.flatMap((page) => page.items) ?? [],
+    [data],
+  );
+
+  // Counts come from the full feed, not the loaded pages.
+  const { data: all } = useFeed();
   const counts = useMemo(() => {
-    const byKind = { all: entries.length, question: 0, project: 0, post: 0 };
-    for (const e of entries) byKind[e.kind] += 1;
+    const byKind = { all: 0, question: 0, project: 0, post: 0 };
+    for (const e of all ?? []) {
+      byKind[e.kind] += 1;
+      byKind.all += 1;
+    }
     return byKind;
-  }, [entries]);
+  }, [all]);
 
-  const visible = useMemo(() => {
-    const kind = FILTERS[filter].kind;
-    return kind === "all" ? entries : entries.filter((e) => e.kind === kind);
-  }, [entries, filter]);
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   function onChange(next: number) {
     setFilter(next);
@@ -57,22 +87,13 @@ export function FeedList({ entries }: { entries: FeedEntry[] }) {
         </Tabs>
       </div>
 
-      <div className="flex flex-col">
-        <AnimatePresence initial={false} mode="popLayout">
-          {visible.map((entry) => (
-            <motion.div
-              key={entry.id}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-            >
-              <FeedItem entry={entry} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+      <VirtualFeed
+        entries={entries}
+        hasMore={!!hasNextPage}
+        loading={isFetchingNextPage}
+        loadMore={loadMore}
+        scrollRef={scrollRef}
+      />
     </TabGroup>
   );
 }

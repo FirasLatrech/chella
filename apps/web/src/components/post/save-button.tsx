@@ -6,7 +6,7 @@ import { BookmarkIcon } from "@solar-icons/react/bold-duotone";
 import { cn } from "@/lib/utils";
 import { ApiError, savePost } from "@/lib/mutations";
 import { queryKeys } from "@/lib/keys";
-import type { FeedEntry } from "@/components/dashboard/feed-item";
+import { patchEntryEverywhere } from "@/lib/cache";
 
 /*
  * Bookmark toggle. Optimistic: the icon flips instantly, every cached list
@@ -28,16 +28,8 @@ export function SaveButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const patchLists = (next: boolean) => {
-    const patch = (entries?: FeedEntry[]) =>
-      entries?.map((e) => (e.id === id ? { ...e, saved: next } : e));
-    queryClient.setQueryData<FeedEntry[]>(queryKeys.feed, patch);
-    // Search results share the ["posts", params] key family.
-    queryClient.setQueriesData<FeedEntry[]>({ queryKey: ["posts"] }, patch);
-    queryClient.setQueryData<FeedEntry & object>(queryKeys.entry(id), (e) =>
-      e ? { ...e, saved: next } : e,
-    );
-  };
+  const patchLists = (next: boolean) =>
+    patchEntryEverywhere(queryClient, id, (e) => ({ ...e, saved: next }));
 
   const mutation = useMutation({
     mutationFn: () => savePost(id),

@@ -68,6 +68,21 @@ export async function fetchPosts(
   return res.json();
 }
 
+export interface PostPageServer {
+  items: FeedEntry[];
+  next: string;
+}
+
+/** One page of the feed — used to prefetch the infinite list on the server. */
+export async function fetchPostPage(
+  params: Record<string, string> = {},
+): Promise<PostPageServer> {
+  const qs = new URLSearchParams({ ...params, paged: "1", limit: "20" });
+  const res = await apiFetch(`/api/posts?${qs}`);
+  if (!res.ok) return { items: [], next: "" };
+  return res.json();
+}
+
 export async function fetchSaved(): Promise<FeedEntry[]> {
   const res = await apiFetch("/api/saved");
   if (!res.ok) return [];

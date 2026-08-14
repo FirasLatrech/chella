@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useInteractionSound } from "@/lib/sound";
 import { votePost, ApiError } from "@/lib/mutations";
 import { queryKeys } from "@/lib/queries";
+import { patchEntryEverywhere } from "@/lib/cache";
 import type { FeedEntry } from "@/components/dashboard/feed-item";
 
 /*
@@ -37,17 +38,11 @@ export function VotePill({
     onMutate: async (direction) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.feed });
       const previous = queryClient.getQueryData<FeedEntry[]>(queryKeys.feed);
-      queryClient.setQueryData<FeedEntry[]>(queryKeys.feed, (old) =>
-        old?.map((e) =>
-          e.id === postId
-            ? {
-                ...e,
-                votes: e.votes - (e.myVote ?? 0) + direction,
-                myVote: direction,
-              }
-            : e,
-        ),
-      );
+      patchEntryEverywhere(queryClient, postId, (e) => ({
+        ...e,
+        votes: e.votes - (e.myVote ?? 0) + direction,
+        myVote: direction,
+      }));
       return { previous };
     },
     onError: (err, _vars, context) => {

@@ -10,6 +10,9 @@ export const queryKeys = {
   leaderboard: (params: Record<string, string>) =>
     ["leaderboard", params] as const,
   profile: (handle: string) => ["profile", handle] as const,
+  /** Infinite (paged) list. Distinct from `feed`/`search`, whose flat arrays
+   *  still back the rails, tag options and the sidebar badge. */
+  infinite: (params: Record<string, string>) => ["infinite", params] as const,
   saved: ["saved"] as const,
 };
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -158,17 +159,40 @@ func (s *server) listPosts(w http.ResponseWriter, r *http.Request) {
 			or exists (select 1 from unnest(p.tags) t where t ilike $%d))`, n, n, n, n))
 	}
 
-	order := " order by p.created_at desc"
-	switch params.Get("sort") {
+	// Keyset pagination: `cursor` is the last id of the previous page. For
+	// the default (newest first) ordering that's a strict id comparison, which
+	// stays correct as rows are inserted — unlike an offset, which shifts.
+	// Ranked sorts fall back to an offset since their key isn't monotonic.
+	sort := params.Get("sort")
+	order := " order by p.created_at desc, p.id desc"
+	switch sort {
 	case "top":
 		order = ` order by p.votes + coalesce((select sum(direction)
-			from post_votes v where v.post_id = p.id), 0) desc, p.created_at desc`
+			from post_votes v where v.post_id = p.id), 0) desc, p.id desc`
 	case "views":
 		order = ` order by p.views + (select count(*) from post_views pv
-			where pv.post_id = p.id) desc, p.created_at desc`
+			where pv.post_id = p.id) desc, p.id desc`
 	}
 
-	rows, err := s.db.Query(r.Context(), listQueryBase+where+order, args...)
+	limit := clampInt(params.Get("limit"), 20, 1, 50)
+	paging := ""
+	if cursor := params.Get("cursor"); cursor != "" {
+		if sort == "" || sort == "new" {
+			// Keyset on the ordering key itself — (created_at, id) — since
+			// ids are not chronological (the seed inserts out of order).
+			args = append(args, cursor)
+			addWhere(fmt.Sprintf(`(p.created_at, p.id) <
+				(select p2.created_at, p2.id from posts p2 where p2.id = $%d)`,
+				len(args)))
+		} else {
+			// Ranked pages use the cursor as a plain offset.
+			paging = fmt.Sprintf(" offset %d", clampInt(cursor, 0, 0, 10000))
+		}
+	}
+	args = append(args, limit+1) // one extra row tells us if more remain
+	paging = fmt.Sprintf(" limit $%d", len(args)) + paging
+
+	rows, err := s.db.Query(r.Context(), listQueryBase+where+order+paging, args...)
 	if err != nil {
 		log.Printf("list posts: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
@@ -180,7 +204,41 @@ func (s *server) listPosts(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
 		return
 	}
+
+	// The extra row is the "has more" probe, not content.
+	next := ""
+	if len(items) > limit {
+		items = items[:limit]
+		if sort == "" || sort == "new" {
+			next = items[len(items)-1].ID
+		} else {
+			offset := clampInt(params.Get("cursor"), 0, 0, 10000)
+			next = fmt.Sprint(offset + limit)
+		}
+	}
+
+	// Paged shape only when asked for, so existing flat consumers (rails,
+	// tag options, the sidebar badge) keep receiving a plain array.
+	if params.Get("paged") == "1" {
+		writeJSON(w, http.StatusOK, map[string]any{"items": items, "next": next})
+		return
+	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+// clampInt parses a query int, falling back to def and bounding the result.
+func clampInt(raw string, def, min, max int) int {
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return def
+	}
+	if n < min {
+		return min
+	}
+	if n > max {
+		return max
+	}
+	return n
 }
 
 // GET /api/posts/{id} — full entry with body blocks and discussion.

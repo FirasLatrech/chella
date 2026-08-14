@@ -1,6 +1,10 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import type { FeedEntry } from "@/components/dashboard/feed-item";
 import type { ContentEntry } from "@/lib/content";
 import type { Me } from "@/lib/api";
@@ -52,6 +56,31 @@ export function useSearchPosts(params: Record<string, string>) {
     queryFn: () => get<FeedEntry[]>(`/api/posts${qs ? `?${qs}` : ""}`),
     // Old results stay visible while the next search loads — no flicker.
     placeholderData: keepPreviousData,
+  });
+}
+
+export interface PostPage {
+  items: FeedEntry[];
+  /** Cursor for the next page; "" when this is the last one. */
+  next: string;
+}
+
+/*
+ * Paged feed for the infinite lists. The flat useFeed stays for the small
+ * derived reads (sidebar badge, tag options) — those want the whole set, not
+ * page one.
+ */
+export function useInfinitePosts(params: Record<string, string> = {}) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.infinite(params),
+    initialPageParam: "",
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams({ ...params, paged: "1", limit: "20" });
+      if (pageParam) qs.set("cursor", String(pageParam));
+      return get<PostPage>(`/api/posts?${qs}`);
+    },
+    getNextPageParam: (last) => last.next || undefined,
+    refetchOnWindowFocus: true,
   });
 }
 

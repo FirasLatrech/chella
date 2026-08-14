@@ -5,7 +5,7 @@ import { RightRail } from "@/components/dashboard/right-rail";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { getQueryClient } from "@/lib/get-query-client";
 import { queryKeys } from "@/lib/keys";
-import { fetchFeed, requireAuth } from "@/lib/api";
+import { fetchFeed, fetchPostPage, requireAuth } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +14,16 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   await requireAuth("/");
   const queryClient = getQueryClient();
-  await queryClient.prefetchQuery({
-    queryKey: queryKeys.feed,
-    queryFn: fetchFeed,
-  });
+  // Both shapes: the infinite list renders the rows, while the flat feed
+  // still backs the tab counts, rails and tag options.
+  await Promise.all([
+    queryClient.prefetchQuery({ queryKey: queryKeys.feed, queryFn: fetchFeed }),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.infinite({}),
+      queryFn: () => fetchPostPage(),
+      initialPageParam: "",
+    }),
+  ]);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>

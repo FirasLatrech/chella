@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Composer } from "./composer";
 import { FeedList } from "./feed-list";
-import { useFeed, queryKeys } from "@/lib/queries";
+import { queryKeys } from "@/lib/queries";
 import { createPost, ApiError } from "@/lib/mutations";
 import type { FeedKind } from "./feed-item";
 import type { Block } from "@/lib/content";
@@ -29,10 +29,12 @@ export interface ComposerDraft {
 export function FeedSection({ rail }: { rail?: ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: entries = [] } = useFeed();
 
   const rootRef = useRef<HTMLDivElement>(null);
   const bandRef = useRef<HTMLDivElement>(null);
+  // The panel's scroll layer — the virtualizer measures against it rather
+  // than introducing a nested scroller.
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // The tabs stick directly below the composer, whose height changes when it
   // expands — publish the measured height as a CSS variable so their offset
@@ -51,7 +53,10 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
   async function publish(draft: ComposerDraft) {
     try {
       await createPost(draft);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.feed });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed }),
+        queryClient.invalidateQueries({ queryKey: ["infinite"] }),
+      ]);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         // Don't lose their writing to the login round-trip; the composer
@@ -71,7 +76,7 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
     <div ref={rootRef} className="relative flex min-h-0 flex-1 flex-col">
       {/* Single full-height scroll layer, so the scrollbar track starts at
           the very top of the panel. */}
-      <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="scroll-slim min-h-0 flex-1 overflow-y-auto">
         {/* Composer — sticky, frosted: it never leaves the screen, and feed
             rows slide beneath it while scrolling. */}
         <div
@@ -86,7 +91,7 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
 
         <div className="flex w-full gap-6 px-5 pb-10">
           <main className="min-w-0 flex-1">
-            <FeedList entries={entries} />
+            <FeedList scrollRef={scrollRef} />
           </main>
           <div className="hidden w-72 shrink-0 xl:block" />
         </div>

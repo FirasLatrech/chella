@@ -1,11 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ProjectCard, type ProjectCardModel } from "./project-card";
-import { useFeed, useSearchPosts } from "@/lib/queries";
+import { useFeed, useInfinitePosts } from "@/lib/queries";
 
 type Sort = "top" | "new" | "views";
 
@@ -40,13 +40,35 @@ export function ProjectsBrowser() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data, isFetching } = useSearchPosts(
-    projectSearchParams(debounced, tag, sort),
+  const params = useMemo(
+    () => projectSearchParams(debounced, tag, sort),
+    [debounced, tag, sort],
   );
+  const { data, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfinitePosts(params);
+
+  const entries = useMemo(
+    () => data?.pages.flatMap((page) => page.items) ?? [],
+    [data],
+  );
+
+  // The grid loads more when the sentinel below it scrolls into view. Cards
+  // are a wrapping grid rather than a uniform list, so this pages without
+  // virtualizing — the DOM stays bounded by how far the user scrolls.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasNextPage) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !isFetchingNextPage) fetchNextPage();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const visible: ProjectCardModel[] = useMemo(
     () =>
-      (data ?? []).map((e) => ({
+      entries.map((e) => ({
         id: e.id,
         title: e.title,
         excerpt: e.excerpt,
@@ -57,7 +79,7 @@ export function ProjectsBrowser() {
         comments: e.replies,
         myVote: e.myVote ?? 0,
       })),
-    [data],
+    [entries],
   );
 
   // Tag options come from the cached full feed, so the dropdown doesn't
@@ -122,6 +144,13 @@ export function ProjectsBrowser() {
           ))}
         </AnimatePresence>
       </div>
+
+      <div ref={sentinelRef} className="h-px w-full" />
+      {isFetchingNextPage ? (
+        <p className="text-muted-foreground pb-8 text-center text-xs">
+          Loading more…
+        </p>
+      ) : null}
 
       {visible.length === 0 && !isFetching ? (
         <p className="text-muted-foreground px-5 pb-10 text-center text-sm">

@@ -57,23 +57,12 @@ export async function fetchFeed(): Promise<FeedEntry[]> {
   return res.json();
 }
 
-export async function fetchPosts(
-  params: Record<string, string>,
-): Promise<FeedEntry[]> {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "")),
-  ).toString();
-  const res = await apiFetch(`/api/posts${qs ? `?${qs}` : ""}`);
-  if (!res.ok) throw new Error(`GET /api/posts search failed: ${res.status}`);
-  return res.json();
-}
-
 export interface PostPageServer {
   items: FeedEntry[];
   next: string;
 }
 
-/** One page of the feed — used to prefetch the infinite list on the server. */
+/** One page of the feed — used to prefetch the infinite lists on the server. */
 export async function fetchPostPage(
   params: Record<string, string> = {},
 ): Promise<PostPageServer> {

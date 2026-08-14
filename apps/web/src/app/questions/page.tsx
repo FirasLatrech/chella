@@ -3,7 +3,7 @@ import { PenNewSquareIcon } from "@solar-icons/react/bold-duotone";
 import { cn } from "@/lib/utils";
 import { Shell } from "@/components/dashboard/shell";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { QuestionsList } from "@/components/questions/questions-list";
+import { QuestionsPanel } from "@/components/questions/questions-panel";
 import { QuestionsRail } from "@/components/questions/questions-rail";
 import {
   controlBase,
@@ -13,7 +13,7 @@ import {
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/get-query-client";
 import { queryKeys } from "@/lib/keys";
-import { fetchFeed, requireAuth } from "@/lib/api";
+import { fetchFeed, fetchPostPage, requireAuth } from "@/lib/api";
 
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,14 @@ export const dynamic = "force-dynamic";
 export default async function QuestionsPage() {
   await requireAuth("/questions");
   const queryClient = getQueryClient();
-  await queryClient.prefetchQuery({ queryKey: queryKeys.feed, queryFn: fetchFeed });
+  await Promise.all([
+    queryClient.prefetchQuery({ queryKey: queryKeys.feed, queryFn: fetchFeed }),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.infinite({ kind: "question" }),
+      queryFn: () => fetchPostPage({ kind: "question" }),
+      initialPageParam: "",
+    }),
+  ]);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -29,14 +36,7 @@ export default async function QuestionsPage() {
       <PageHeader title="Questions" />
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-          <div className="flex w-full gap-6 px-5 pb-10">
-            <main className="min-w-0 flex-1 pt-1">
-              <QuestionsList />
-            </main>
-            <div className="hidden w-72 shrink-0 xl:block" />
-          </div>
-        </div>
+        <QuestionsPanel />
 
         {/* Rail pinned to the panel, matching the feed page. */}
         <div className="scroll-slim absolute top-3 right-5 bottom-0 z-40 hidden w-72 overflow-y-auto pb-6 xl:block">

@@ -47,18 +47,6 @@ export function useEntry(id: string, initialData?: ContentEntry) {
   });
 }
 
-export function useSearchPosts(params: Record<string, string>) {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "")),
-  ).toString();
-  return useQuery({
-    queryKey: queryKeys.search(params),
-    queryFn: () => get<FeedEntry[]>(`/api/posts${qs ? `?${qs}` : ""}`),
-    // Old results stay visible while the next search loads — no flicker.
-    placeholderData: keepPreviousData,
-  });
-}
-
 export interface PostPage {
   items: FeedEntry[];
   /** Cursor for the next page; "" when this is the last one. */

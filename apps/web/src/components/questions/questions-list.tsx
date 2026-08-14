@@ -1,11 +1,11 @@
 "use client";
 
 import { TabGroup } from "@headlessui/react";
-import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Tabs, TabItem } from "@/components/ui/tabs";
 import { QuestionRow, type QuestionEntry } from "./question-row";
-import { useFeed } from "@/lib/queries";
+import { VirtualList } from "@/components/dashboard/virtual-list";
+import { useInfinitePosts } from "@/lib/queries";
 import { questionsFromFeed } from "@/lib/derive";
 
 const FILTERS = [
@@ -17,11 +17,25 @@ const FILTERS = [
   { label: "Solved", match: (q: QuestionEntry) => Boolean(q.solved) },
 ] as const;
 
-export function QuestionsList() {
-  const { data: feed = [] } = useFeed();
-  const entries = useMemo(() => questionsFromFeed(feed), [feed]);
+const PARAMS = { kind: "question" };
+
+export function QuestionsList({
+  scrollRef,
+}: {
+  scrollRef: React.RefObject<HTMLElement | null>;
+}) {
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfinitePosts(PARAMS);
+  const entries = useMemo(
+    () => questionsFromFeed(data?.pages.flatMap((p) => p.items) ?? []),
+    [data],
+  );
   const [filter, setFilter] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const counts = useMemo(
     () => FILTERS.map((f) => entries.filter(f.match).length),
@@ -54,28 +68,19 @@ export function QuestionsList() {
         </Tabs>
       </div>
 
-      <div className="flex flex-col">
-        <AnimatePresence initial={false} mode="popLayout">
-          {visible.map((entry) => (
-            <motion.div
-              key={entry.id}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-            >
-              <QuestionRow entry={entry} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {visible.length === 0 ? (
-          <p className="text-muted-foreground px-3 py-10 text-center text-sm">
-            Nothing here — every question has an answer. 🎉
+      <VirtualList
+        items={visible}
+        renderItem={(entry) => <QuestionRow entry={entry} />}
+        scrollRef={scrollRef}
+        hasMore={!!hasNextPage}
+        loading={isFetchingNextPage}
+        loadMore={loadMore}
+        emptyState={
+          <p className="text-muted-foreground px-3 py-14 text-center text-sm">
+            No questions here yet.
           </p>
-        ) : null}
-      </div>
+        }
+      />
     </TabGroup>
   );
 }

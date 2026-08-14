@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { BookmarkIcon } from "@solar-icons/react/bold-duotone";
 import { Tabs, TabItem } from "@/components/ui/tabs";
 import { FeedItem, type FeedKind } from "@/components/dashboard/feed-item";
+import { VirtualList } from "@/components/dashboard/virtual-list";
 import { useSaved } from "@/lib/queries";
 
 const FILTERS: { value: FeedKind | "all"; label: string }[] = [
@@ -19,7 +20,11 @@ const FILTERS: { value: FeedKind | "all"; label: string }[] = [
  * The bookmarks list — same rows as the feed (including their save buttons,
  * so un-saving here removes the row), filtered by kind on the client.
  */
-export function SavedList() {
+export function SavedList({
+  scrollRef,
+}: {
+  scrollRef: React.RefObject<HTMLElement | null>;
+}) {
   const { data } = useSaved();
   const [filterIndex, setFilterIndex] = useState(0);
   const filter = FILTERS[filterIndex].value;
@@ -67,17 +72,16 @@ export function SavedList() {
         </span>
       </div>
 
-      {entries.length === 0 ? (
-        <p className="text-muted-foreground px-3 py-14 text-center text-sm">
-          No saved {FILTERS[filterIndex].label.toLowerCase()} yet.
-        </p>
-      ) : (
-        <div className="flex flex-col">
-          {entries.map((entry) => (
-            <FeedItem key={entry.id} entry={entry} />
-          ))}
-        </div>
-      )}
+      <VirtualList
+        items={entries}
+        renderItem={(entry) => <FeedItem entry={entry} />}
+        scrollRef={scrollRef}
+        emptyState={
+          <p className="text-muted-foreground px-3 py-14 text-center text-sm">
+            No saved {FILTERS[filterIndex].label.toLowerCase()} yet.
+          </p>
+        }
+      />
     </TabGroup>
   );
 }

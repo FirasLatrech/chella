@@ -4,6 +4,7 @@ import type { FeedEntry } from "@/components/dashboard/feed-item";
 import type { ContentEntry } from "@/lib/content";
 import type { LeaderboardEntry } from "@/components/leaderboard";
 import type { ProfileStats } from "@/lib/derive";
+import type { ProfileBadge } from "@/components/profile/badge-shelf";
 
 /*
  * Server-side client for the Go API. Every request forwards the incoming
@@ -138,6 +139,7 @@ export interface Profile {
   linkedin: string;
   website: string;
   cvUrl: string;
+  badges?: ProfileBadge[];
 }
 
 export interface Activity {
@@ -209,6 +211,7 @@ export async function fetchProfileStats(handle: string): Promise<
       github: string;
       linkedin: string;
       website: string;
+      badges: ProfileBadge[];
     })
   | null
 > {
@@ -244,6 +247,7 @@ export async function fetchProfileStats(handle: string): Promise<
     cvUrl: detail.cvUrl,
     activity,
     tagRanks: detail.tagRanks ?? [],
+    badges: detail.badges ?? [],
   };
 }
 

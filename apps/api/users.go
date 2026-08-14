@@ -34,6 +34,7 @@ type profile struct {
 	Linkedin   string        `json:"linkedin"`
 	Website    string        `json:"website"`
 	CvURL      string        `json:"cvUrl"`
+	Badges     []badge       `json:"badges"`
 }
 
 const profileCountsQuery = `
@@ -91,6 +92,15 @@ func (s *server) getProfile(w http.ResponseWriter, r *http.Request) {
 		if rank := s.tagRank(r.Context(), userID, tag); rank > 0 {
 			p.TagRanks = append(p.TagRanks, tagRankItem{Tag: tag, Rank: rank})
 		}
+	}
+
+	// Badges are derived on read (see badges.go) — nothing stored, nothing
+	// to backfill, and deleting content correctly revokes them.
+	if st, err := s.badgeStats(r.Context(), userID); err == nil {
+		p.Badges = badgesFor(st)
+	} else {
+		log.Printf("badges: %v", err)
+		p.Badges = []badge{}
 	}
 
 	writeJSON(w, http.StatusOK, p)

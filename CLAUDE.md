@@ -183,6 +183,47 @@ user has at least one profile detail (bio, link or CV) — the composer shows
 a "Complete your profile to post" link and disables Publish (server check is
 authoritative).
 
+**Rich text** (migration-free): post bodies are stored as jsonb `Block[]`
+(`p` / `heading` / `code` / `list` / `quote`). The whitelist is enforced in
+`apps/api/blocks.go` (`sanitizeBlocks` — unknown types dropped, plain text
+only, never HTML); `lib/blocks.ts` mirrors it client-side for convenience,
+NOT as the boundary. A plain `body` string still becomes one paragraph, which
+is what keeps the seed working.
+
+**Edit/delete** (migration 0010, `edited_at`): PATCH/DELETE on posts and
+replies. Authorship is enforced inside the SQL (`where id = $1 and author_id
+= $2`) so there's no check-then-write gap, and a miss returns 404 rather than
+403 (a 403 would confirm someone else's id exists). Deleting an accepted
+answer clears the question's `solved` flag. Reputation and badges need no
+unwinding — both recompute from the domain tables.
+
+**Infinite scroll + virtualization** (NOT numbered pagination — user asked
+for this explicitly): `GET /api/posts?paged=1&cursor=` returns
+`{items, next}`. The cursor keys on `(created_at, id)`, never `id` alone —
+seeded ids are not chronological and keying on id skips/repeats rows.
+Unpaged requests still return a flat array, which is what the rails, tag
+options and sidebar badge rely on. Client: `useInfinitePosts` +
+`VirtualList`/`VirtualFeed` (@tanstack/react-virtual). **The virtualizer needs
+a mounted scroll element**, so lists take a `scrollRef` from a thin client
+`*-panel.tsx` wrapper (a server component can't hold a ref), and it renders a
+plain list until `layout.ready` — otherwise SSR is blank. **Optimistic
+updates MUST go through `lib/cache.ts`** (`patchEntryEverywhere`): an entry
+lives in both flat arrays and `{pages}`, and patching one shape only makes
+votes/bookmarks silently revert.
+
+**Jobs** (migration 0011): real table + seed (`seed_jobs.go`, idempotent on
+its own count since the content seed is gated on posts). `GET /api/jobs`
+ranks listings per reader — roles overlapping their top tags come first,
+carrying `tagRank` ("#1 Go"). Reputation is a SIGNAL, never a gate: a role
+above your reputation still lists, it just isn't marked a match. The page
+keeps a coming-soon overlay (`LIVE = false` in `app/jobs/page.tsx`) blurring
+the REAL board; flip `LIVE` to open it.
+
+**Badges** (`apps/api/badges.go`): derived on read, never stored — same
+reasoning as the reputation formula. No table, no backfill, and deleting
+content correctly revokes the badge (verified: 3 projects → silver, delete
+→ bronze). Tiers are bronze/silver/gold from count thresholds.
+
 ## Frontend data layer (React Query)
 
 - **Keys live in `lib/keys.ts`** — a module with NO "use client", imported by

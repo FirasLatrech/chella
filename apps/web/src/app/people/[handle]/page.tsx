@@ -15,6 +15,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
 import { MediaTrigger } from "@/components/ui/media-viewer";
+import { BadgeShelf } from "@/components/profile/badge-shelf";
 import { fetchProfileStats, requireAuth } from "@/lib/api";
 import { formatPoints } from "@/lib/format";
 
@@ -184,6 +185,12 @@ export default async function ProfilePage({
                   );
                 })}
               </div>
+
+              {profile.badges.length > 0 ? (
+                <div className="mt-4">
+                  <BadgeShelf badges={profile.badges} />
+                </div>
+              ) : null}
 
               <div className="mt-4">
                 <ActivityGraph days={profile.activity.days} today={today} />

@@ -21,6 +21,7 @@ import { uploadImage, ApiError } from "@/lib/mutations";
 import { useMe, useProfile } from "@/lib/queries";
 import type { FeedKind } from "./feed-item";
 import type { ComposerDraft } from "./feed-section";
+import type { Block } from "@/lib/content";
 
 const KINDS: {
   kind: FeedKind;
@@ -73,6 +74,7 @@ export function Composer({
   const [kind, setKind] = useState<FeedKind>("post");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [image, setImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [editorKey, setEditorKey] = useState(0);
@@ -209,6 +211,7 @@ export function Composer({
         kind,
         title: title.trim(),
         body: body.trim(),
+        blocks,
         tags,
         imageUrl,
       });
@@ -281,6 +284,7 @@ export function Composer({
                 placeholder="Add the details — context, code, links…"
                 initialText={restoredBody}
                 onTextChange={setBody}
+                onBlocksChange={setBlocks}
               />
 
               {/* Tags — selected first, then popular suggestions, then a

@@ -8,11 +8,15 @@ import { FeedList } from "./feed-list";
 import { useFeed, queryKeys } from "@/lib/queries";
 import { createPost, ApiError } from "@/lib/mutations";
 import type { FeedKind } from "./feed-item";
+import type { Block } from "@/lib/content";
 
 export interface ComposerDraft {
   kind: FeedKind;
   title: string;
+  /** Plain text — drafts and the excerpt fallback. */
   body: string;
+  /** Structured body; what actually gets stored. */
+  blocks?: Block[];
   tags: string[];
   imageUrl?: string;
 }

@@ -20,7 +20,7 @@ import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/get-query-client";
 import { queryKeys } from "@/lib/keys";
 import { fetchEntry, fetchFeed, relatedTo, requireAuth } from "@/lib/api";
-import type { Block } from "@/lib/content";
+import { BlockView } from "@/components/post/block-view";
 
 const KIND_LABEL = { question: "Question", project: "Project", post: "Post" };
 const BACK: Record<string, { href: string; label: string }> = {
@@ -191,31 +191,4 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
     </Shell>
     </HydrationBoundary>
   );
-}
-
-function BlockView({ block }: { block: Block }) {
-  switch (block.type) {
-    case "p":
-      return (
-        <p className="text-foreground/90 text-sm leading-relaxed">
-          {block.text}
-        </p>
-      );
-    case "code":
-      return (
-        <pre className="bg-muted/60 ring-border-surface overflow-x-auto rounded-xl p-3.5 ring-[0.5px]">
-          <code className="font-mono text-xs leading-relaxed">
-            {block.code}
-          </code>
-        </pre>
-      );
-    case "list":
-      return (
-        <ul className="text-foreground/90 flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed">
-          {block.items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      );
-  }
 }

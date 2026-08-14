@@ -7,10 +7,17 @@ import type { LeaderboardEntry } from "@/components/leaderboard";
  * into its seed); the Go API serves these exact shapes.
  */
 
+/*
+ * Stored post body. Persisted as jsonb and rendered to every reader, so the
+ * set is a closed whitelist of plain-text blocks — never HTML. The Go API
+ * validates incoming blocks against this same list (see sanitizeBlocks).
+ */
 export type Block =
   | { type: "p"; text: string }
+  | { type: "heading"; level: 1 | 2; text: string }
   | { type: "code"; lang?: string; code: string }
-  | { type: "list"; items: string[] };
+  | { type: "list"; items: string[]; ordered?: boolean }
+  | { type: "quote"; text: string };
 
 export interface Reply {
   id: string;

@@ -45,6 +45,7 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 		Kind     string   `json:"kind"`
 		Title    string   `json:"title"`
 		Body     string   `json:"body"`
+		Blocks   []block  `json:"blocks"`
 		Tags     []string `json:"tags"`
 		ImageURL string   `json:"imageUrl"`
 	}
@@ -69,15 +70,10 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 		in.Tags = in.Tags[:3]
 	}
 
-	body := in.Body
-	if body == "" {
-		body = in.Title
-	}
-	excerpt := body
-	if len([]rune(excerpt)) > 180 {
-		excerpt = string([]rune(excerpt)[:177]) + "…"
-	}
-	blocks, _ := json.Marshal([]map[string]string{{"type": "p", "text": body}})
+	// Rich blocks from the editor are whitelisted server-side; a plain body
+	// still works and becomes a single paragraph.
+	blocks, bodyText := buildBlocks(in.Blocks, in.Body)
+	excerpt := excerptFrom(bodyText, in.Title)
 
 	var imageURL *string
 	if in.ImageURL != "" {

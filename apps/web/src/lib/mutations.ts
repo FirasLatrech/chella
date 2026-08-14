@@ -1,6 +1,7 @@
 "use client";
 
 import type { FeedKind } from "@/components/dashboard/feed-item";
+import type { Block } from "@/lib/content";
 
 /*
  * Browser-side mutations against the Go API. All requests carry the session
@@ -108,6 +109,7 @@ export function createPost(input: {
   kind: FeedKind;
   title: string;
   body: string;
+  blocks?: Block[];
   tags: string[];
   imageUrl?: string;
 }) {

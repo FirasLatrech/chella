@@ -1,0 +1,13 @@
+{
+  "name": "chelaa",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "start": "pnpm --filter web start",
+    "lint": "pnpm --filter web lint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  }
+}

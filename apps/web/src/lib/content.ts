@@ -28,6 +28,10 @@ export interface Reply {
   accepted?: boolean;
   /** Whether the requesting user has upvoted this reply. */
   myVote?: boolean;
+  /** Body was changed after posting. */
+  edited?: boolean;
+  /** The requesting user wrote this. */
+  mine?: boolean;
 }
 
 export interface ContentEntry extends Omit<FeedEntry, "replies"> {

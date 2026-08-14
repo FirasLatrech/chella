@@ -11,12 +11,16 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/input";
 import { RichEditor } from "@/components/ui/rich-editor";
+import { OwnerMenu } from "./owner-menu";
 import { playBounceSound, useInteractionSound } from "@/lib/sound";
 import {
   createReply,
   voteReply,
   acceptReply,
+  updateReply,
+  deleteReply,
   ApiError,
 } from "@/lib/mutations";
 import { useEntry, useMe, queryKeys } from "@/lib/queries";
@@ -149,6 +153,37 @@ function ReplyCard({
   canAccept: boolean;
   onAccept: () => void;
 }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(reply.text);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.entry(postId) });
+
+  const save = useMutation({
+    mutationFn: () => updateReply(reply.id, draft.trim()),
+    onSuccess: async () => {
+      setEditing(false);
+      await invalidate();
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 401) {
+        router.push(`/login?next=/post/${postId}`);
+      }
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: () => deleteReply(reply.id),
+    onSuccess: invalidate,
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 401) {
+        router.push(`/login?next=/post/${postId}`);
+      }
+    },
+  });
+
   return (
     <article
       className={cn(
@@ -163,6 +198,7 @@ function ReplyCard({
         <span className="text-sm font-medium">@{reply.author}</span>
         <span className="text-muted-foreground/70 text-[11px]">
           {reply.time}
+          {reply.edited ? " · edited" : ""}
         </span>
         <span className="ml-auto flex items-center gap-2">
           {reply.accepted ? (
@@ -184,11 +220,46 @@ function ReplyCard({
             </button>
           ) : null}
           <ReplyVote reply={reply} postId={postId} />
+          {reply.mine ? (
+            <OwnerMenu
+              what="reply"
+              onEdit={() => {
+                setDraft(reply.text);
+                setEditing(true);
+              }}
+              onDelete={() => remove.mutate()}
+              deleting={remove.isPending}
+            />
+          ) : null}
         </span>
       </div>
-      <p className="text-foreground/90 mt-2.5 text-sm leading-relaxed">
-        {reply.text}
-      </p>
+      {editing ? (
+        <div className="mt-2.5">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            autoFocus
+          />
+          <div className="mt-2 flex items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={save.isPending || !draft.trim()}
+              onClick={() => save.mutate()}
+            >
+              {save.isPending ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-foreground/90 mt-2.5 text-sm leading-relaxed text-pretty">
+          {reply.text}
+        </p>
+      )}
     </article>
   );
 }

@@ -41,6 +41,10 @@ export interface FeedEntry {
   myVote?: number;
   /** The requesting user bookmarked this entry. */
   saved?: boolean;
+  /** Body was changed after posting. */
+  edited?: boolean;
+  /** The requesting user wrote this. */
+  mine?: boolean;
 }
 
 const KIND: Record<

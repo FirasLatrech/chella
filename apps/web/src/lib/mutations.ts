@@ -164,6 +164,25 @@ export function voteReply(replyId: string, up: boolean) {
   );
 }
 
+export function updatePost(
+  id: string,
+  input: { title: string; body?: string; blocks?: Block[]; tags: string[] },
+) {
+  return send("PATCH", `/api/posts/${id}`, input);
+}
+
+export function deletePost(id: string) {
+  return send("DELETE", `/api/posts/${id}`);
+}
+
+export function updateReply(id: string, text: string) {
+  return send("PATCH", `/api/replies/${id}`, { text });
+}
+
+export function deleteReply(id: string) {
+  return send("DELETE", `/api/replies/${id}`);
+}
+
 /** Toggles the bookmark; returns the new state. */
 export function savePost(postId: string) {
   return post<{ saved: boolean }>(`/api/posts/${postId}/save`);

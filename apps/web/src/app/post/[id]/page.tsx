@@ -15,6 +15,7 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { VoteColumn } from "@/components/post/vote-column";
 import { Discussion } from "@/components/post/discussion";
 import { SaveEntryButton } from "@/components/post/save-entry-button";
+import { PostActions } from "@/components/post/post-actions";
 import { MediaTrigger } from "@/components/ui/media-viewer";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/get-query-client";
@@ -75,7 +76,10 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                         </span>
                       ) : null}
                     </h1>
-                    <SaveEntryButton postId={entry.id} />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <SaveEntryButton postId={entry.id} />
+                      <PostActions postId={entry.id} />
+                    </div>
                   </div>
 
                   <div className="text-muted-foreground mt-2.5 flex flex-wrap items-center gap-2 text-xs">
@@ -89,7 +93,10 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                       </span>
                     </Link>
                     <span>·</span>
-                    <span>{entry.time}</span>
+                    <span>
+                      {entry.time}
+                      {entry.edited ? " · edited" : ""}
+                    </span>
                     <span>·</span>
                     <span className="flex items-center gap-1 tabular-nums">
                       <EyeIcon size={13} />

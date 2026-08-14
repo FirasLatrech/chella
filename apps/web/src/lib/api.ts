@@ -72,6 +72,12 @@ export async function fetchPostPage(
   return res.json();
 }
 
+export async function fetchJobs(): Promise<unknown[]> {
+  const res = await apiFetch("/api/jobs");
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function fetchSaved(): Promise<FeedEntry[]> {
   const res = await apiFetch("/api/saved");
   if (!res.ok) return [];

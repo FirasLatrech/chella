@@ -72,6 +72,35 @@ export function useInfinitePosts(params: Record<string, string> = {}) {
   });
 }
 
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  kind: string;
+  arrangement: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  currency: string;
+  tags: string[];
+  description: string;
+  applyUrl: string;
+  minReputation: number;
+  time: string;
+  /** Tags this reader ranks on that the role asks for. */
+  matchedTags: { tag: string; rank: number }[];
+  qualified: boolean;
+}
+
+export function useJobs(initialData?: Job[]) {
+  return useQuery({
+    queryKey: queryKeys.jobs,
+    queryFn: () => get<Job[]>("/api/jobs"),
+    initialData,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export interface BoardEntry {
   rank: number;
   handle: string;

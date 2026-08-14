@@ -35,6 +35,9 @@ func main() {
 	if err := seed(ctx, pool); err != nil {
 		log.Fatalf("seed: %v", err)
 	}
+	if err := seedJobs(ctx, pool); err != nil {
+		log.Fatalf("seed jobs: %v", err)
+	}
 	if err := ensureDevPasswords(ctx, pool); err != nil {
 		log.Fatalf("dev passwords: %v", err)
 	}
@@ -68,6 +71,7 @@ func main() {
 	mux.HandleFunc("GET /api/users", s.listUsers)
 	mux.HandleFunc("GET /api/rails/top-week", s.topWeek)
 	mux.HandleFunc("GET /api/leaderboard", s.leaderboard)
+	mux.HandleFunc("GET /api/jobs", s.listJobs)
 	mux.HandleFunc("GET /api/rails/trending-tags", s.trendingTags)
 	mux.HandleFunc("POST /api/uploads", s.upload)
 	mux.HandleFunc("GET /api/notifications", s.listNotifications)

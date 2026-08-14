@@ -14,6 +14,7 @@ export const queryKeys = {
    *  still back the rails, tag options and the sidebar badge. */
   infinite: (params: Record<string, string>) => ["infinite", params] as const,
   saved: ["saved"] as const,
+  jobs: ["jobs"] as const,
 };
 
 /** Params for a given board state — shared by page prefetch and client hook. */

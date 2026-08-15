@@ -219,6 +219,36 @@ above your reputation still lists, it just isn't marked a match. The page
 keeps a coming-soon overlay (`LIVE = false` in `app/jobs/page.tsx`) blurring
 the REAL board; flip `LIVE` to open it.
 
+**Mobile** (added late — the app was desktop-only): under `md` the sidebar
+renders inside an off-canvas drawer (`mobile-nav.tsx`) using the SAME
+`Sidebar` component (`variant="drawer"`), never a parallel mobile copy. The
+drawer closes on navigation by DERIVING open state from the pathname it was
+opened on — `setState` inside an effect trips `react-hooks/set-state-in-effect`,
+which this project keeps hitting. It also carries identity + theme toggle,
+because the mobile header drops them.
+
+**Universal search**: `GET /api/search?q=` returns posts + people + tags in
+one payload (small caps — it backs the ⌘K palette, not a results page). Tags
+group case-insensitively so "Go"/"go" are one row.
+
+**Avatars** (migration 0012): optional upload via the existing R2 uploader;
+`avatar_url` rides along with EVERY read that carries a handle (feed rows,
+replies, post detail, people, search) — showing a photo on the profile while
+the feed still showed a sky crop reads as a bug. Falls back to the generated
+sky crop. Server requires the URL be from our uploader AND an image.
+
+**Email** (migration 0013): `mail.go` defines a `mailer` interface —
+Resend when `RESEND_API_KEY` is set, log-only otherwise, so dev needs no
+credentials and nothing escapes to real inboxes. Notification mail mirrors
+the in-app events and is sent asynchronously (a failed email must never fail
+the mutation). Password resets now actually send. Opt out per user via
+`email_notifications`.
+
+**Onboarding**: `onboarding.tsx` — a checklist on the feed driven entirely by
+real profile state (bio/posts/answers/reputation), so it can't congratulate
+someone for work they haven't done, and it removes itself when complete.
+Step one is the profile because posting is gated behind it.
+
 **Badges** (`apps/api/badges.go`): derived on read, never stored — same
 reasoning as the reputation formula. No table, no backfill, and deleting
 content correctly revokes the badge (verified: 3 projects → silver, delete

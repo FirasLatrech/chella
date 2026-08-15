@@ -169,6 +169,9 @@ export interface ProfileDetail {
   website: string;
   cvUrl: string;
   avatar: string;
+  posts: number;
+  answers: number;
+  accepted: number;
 }
 
 export function useMe() {

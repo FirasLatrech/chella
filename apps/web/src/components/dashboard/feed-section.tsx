@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Composer } from "./composer";
 import { FeedList } from "./feed-list";
+import { Onboarding } from "./onboarding";
 import { queryKeys } from "@/lib/queries";
 import { createPost, ApiError } from "@/lib/mutations";
 import type { FeedKind } from "./feed-item";
@@ -91,6 +92,7 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
 
         <div className="flex w-full gap-4 px-3 md:gap-6 pb-10 md:px-5">
           <main className="min-w-0 flex-1">
+            <Onboarding />
             <FeedList scrollRef={scrollRef} />
           </main>
           <div className="hidden w-72 shrink-0 xl:block" />

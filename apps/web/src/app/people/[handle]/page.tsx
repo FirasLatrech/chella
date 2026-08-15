@@ -147,6 +147,7 @@ export default async function ProfilePage({
                           website: profile.website,
                           cvUrl: profile.cvUrl,
                           avatar: profile.avatar,
+                          emailNotifications: profile.emailNotifications,
                         }}
                       />
                     ) : null}

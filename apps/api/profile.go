@@ -21,6 +21,8 @@ type profileInput struct {
 	Website  string `json:"website"`
 	CvURL    string `json:"cvUrl"`
 	Avatar   string `json:"avatar"`
+	/* Pointer so an omitted field leaves the setting untouched. */
+	EmailNotifications *bool `json:"emailNotifications,omitempty"`
 }
 
 // normalizeLink cleans a user-pasted link: trims, prepends https:// when the
@@ -109,8 +111,11 @@ func (s *server) updateProfile(w http.ResponseWriter, r *http.Request) {
 
 	_, err := s.db.Exec(r.Context(), `
 		update users set bio = $1, github = $2, linkedin = $3, website = $4,
-		  cv_url = $5, avatar_url = $6 where id = $7`,
-		in.Bio, github, linkedin, website, in.CvURL, in.Avatar, u.ID)
+		  cv_url = $5, avatar_url = $6,
+		  email_notifications = coalesce($7, email_notifications)
+		where id = $8`,
+		in.Bio, github, linkedin, website, in.CvURL, in.Avatar,
+		in.EmailNotifications, u.ID)
 	if err != nil {
 		log.Printf("update profile: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
@@ -119,6 +124,7 @@ func (s *server) updateProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profileInput{
 		Bio: in.Bio, Github: github, Linkedin: linkedin,
 		Website: website, CvURL: in.CvURL, Avatar: in.Avatar,
+		EmailNotifications: in.EmailNotifications,
 	})
 }
 

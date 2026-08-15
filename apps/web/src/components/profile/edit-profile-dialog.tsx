@@ -48,7 +48,7 @@ export function EditProfileDialog({
 
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 
-  const set = (key: keyof ProfileDetailsInput) => (value: string) => {
+  const set = (key: TextKey) => (value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
   };
 
@@ -117,11 +117,10 @@ export function EditProfileDialog({
     }
   }
 
-  const field = (
-    label: string,
-    key: keyof ProfileDetailsInput,
-    placeholder: string,
-  ) => (
+  // Text fields only — emailNotifications is a boolean and has its own control.
+  type TextKey = "bio" | "github" | "linkedin" | "website" | "cvUrl" | "avatar";
+
+  const field = (label: string, key: TextKey, placeholder: string) => (
     <label className="block">
       <span className="text-muted-foreground mb-1.5 block text-xs font-medium">
         {label}

@@ -54,6 +54,7 @@ export interface ProfileDetailsInput {
   website: string;
   cvUrl: string;
   avatar: string;
+  emailNotifications?: boolean;
 }
 
 export function updateProfile(input: ProfileDetailsInput) {

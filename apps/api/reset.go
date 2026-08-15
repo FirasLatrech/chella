@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -39,9 +40,16 @@ func (s *server) forgotPassword(w http.ResponseWriter, r *http.Request) {
 				insert into password_resets (token, user_id, expires_at)
 				values ($1, $2, $3)`,
 				token, userID, time.Now().Add(resetTTL)); ierr == nil {
-				// Stand-in for the reset email until a mailer exists.
-				log.Printf("password reset for %s: http://localhost:4100/reset-password?token=%s",
-					email, token)
+				link := fmt.Sprintf("%s/reset-password?token=%s", appURL(), token)
+				body := emailShell("Reset your password",
+					"<p>Use the button below to choose a new password. "+
+						"The link works once and expires in an hour.</p>"+
+						"<p>If you didn't ask for this, you can ignore this email.</p>",
+					"Reset password", link)
+				if merr := s.mail.Send(r.Context(), email,
+					"Reset your Chelaa password", body); merr != nil {
+					log.Printf("reset email: %v", merr)
+				}
 			}
 		}
 	}

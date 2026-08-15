@@ -19,28 +19,30 @@ type tagRankItem struct {
 }
 
 type profile struct {
-	Handle     string        `json:"handle"`
-	Name       string        `json:"name"`
-	Joined     string        `json:"joined"`
-	Posts      int           `json:"posts"`
-	Answers    int           `json:"answers"`
-	Accepted   int           `json:"accepted"`
-	Reputation int           `json:"reputation"`
-	Tags       []string      `json:"tags"`
-	Weekly     int           `json:"weekly"`
-	TagRanks   []tagRankItem `json:"tagRanks,omitempty"`
-	Bio        string        `json:"bio"`
-	Github     string        `json:"github"`
-	Linkedin   string        `json:"linkedin"`
-	Website    string        `json:"website"`
-	CvURL      string        `json:"cvUrl"`
-	Avatar     string        `json:"avatar"`
-	Badges     []badge       `json:"badges"`
+	Handle             string        `json:"handle"`
+	Name               string        `json:"name"`
+	Joined             string        `json:"joined"`
+	Posts              int           `json:"posts"`
+	Answers            int           `json:"answers"`
+	Accepted           int           `json:"accepted"`
+	Reputation         int           `json:"reputation"`
+	Tags               []string      `json:"tags"`
+	Weekly             int           `json:"weekly"`
+	TagRanks           []tagRankItem `json:"tagRanks,omitempty"`
+	Bio                string        `json:"bio"`
+	Github             string        `json:"github"`
+	Linkedin           string        `json:"linkedin"`
+	Website            string        `json:"website"`
+	CvURL              string        `json:"cvUrl"`
+	Avatar             string        `json:"avatar"`
+	EmailNotifications bool          `json:"emailNotifications"`
+	Badges             []badge       `json:"badges"`
 }
 
 const profileCountsQuery = `
 	select u.id, u.handle, u.name, u.created_at,
 	  u.bio, u.github, u.linkedin, u.website, u.cv_url, u.avatar_url,
+	  u.email_notifications,
 	  (select count(*) from posts p where p.author_id = u.id),
 	  (select count(*) from replies r where r.author_id = u.id),
 	  (select count(*) from replies r where r.author_id = u.id and r.accepted)
@@ -56,6 +58,7 @@ func (s *server) getProfile(w http.ResponseWriter, r *http.Request) {
 	err := s.db.QueryRow(r.Context(), profileCountsQuery, r.PathValue("handle")).
 		Scan(&userID, &p.Handle, &p.Name, &joined,
 			&p.Bio, &p.Github, &p.Linkedin, &p.Website, &p.CvURL, &p.Avatar,
+			&p.EmailNotifications,
 			&p.Posts, &p.Answers, &p.Accepted)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such user"})

@@ -24,7 +24,20 @@ func (s *server) notify(ctx context.Context, recipient, actor int64, kind string
 		values ($1, $2, $3, $4, $5)`,
 		recipient, actor, kind, postID, replyID); err != nil {
 		log.Printf("notify: %v", err)
+		return
 	}
+
+	// Mirror it to email so activity reaches people who aren't on the site.
+	// Best effort and asynchronous — see sendNotificationEmail.
+	var actorHandle, postTitle string
+	if err := s.db.QueryRow(ctx, `
+		select (select handle from users where id = $1),
+		       (select title from posts where id = $2)`,
+		actor, postID).Scan(&actorHandle, &postTitle); err != nil {
+		log.Printf("notify lookup: %v", err)
+		return
+	}
+	s.sendNotificationEmail(recipient, kind, actorHandle, postTitle, postID)
 }
 
 type notificationItem struct {

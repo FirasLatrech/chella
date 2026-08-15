@@ -140,6 +140,7 @@ export interface Profile {
   website: string;
   cvUrl: string;
   avatar: string;
+  emailNotifications: boolean;
   badges?: ProfileBadge[];
 }
 
@@ -214,6 +215,7 @@ export async function fetchProfileStats(handle: string): Promise<
       website: string;
       badges: ProfileBadge[];
       avatar: string;
+      emailNotifications: boolean;
     })
   | null
 > {
@@ -248,6 +250,7 @@ export async function fetchProfileStats(handle: string): Promise<
     website: detail.website,
     cvUrl: detail.cvUrl,
     avatar: detail.avatar,
+    emailNotifications: detail.emailNotifications,
     activity,
     tagRanks: detail.tagRanks ?? [],
     badges: detail.badges ?? [],

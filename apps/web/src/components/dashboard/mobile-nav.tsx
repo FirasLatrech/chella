@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, DialogBackdrop } from "@headlessui/react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { HamburgerMenuIcon } from "@solar-icons/react/bold-duotone";
 import { Sidebar } from "./sidebar";
 import { cn } from "@/lib/utils";
@@ -15,14 +15,15 @@ import { cn } from "@/lib/utils";
  * destination and being left staring at the menu is the classic mistake here.
  */
 export function MobileNav() {
-  const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  // Closing on navigation is derived, not an effect: we remember which route
+  // the drawer was opened on, and it is open only while we're still there.
+  // (Setting state inside an effect triggers cascading renders — the rule
+  // this project keeps running into.)
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
+  const open = openedAt === pathname;
 
-  // Close on route change. Keyed on pathname rather than the click, so it
-  // also closes when navigation comes from inside the panel.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  const setOpen = (next: boolean) => setOpenedAt(next ? pathname : null);
 
   return (
     <>

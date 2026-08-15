@@ -5,6 +5,7 @@ import { MobileNav } from "./mobile-nav";
 import { Notifications } from "./notifications";
 import { UserMenu } from "./user-menu";
 import { XpChip } from "./xp-chip";
+import { SearchPalette } from "@/components/search/search-palette";
 
 /*
  * Top bar shared by every dashboard page: title left, controls right.
@@ -29,6 +30,7 @@ export function PageHeader({
       <h1 className="truncate text-sm font-medium">{title}</h1>
       {children}
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        <SearchPalette />
         <XpChip />
         <div className="hidden sm:block">
           <ThemeToggle />

@@ -72,6 +72,7 @@ func main() {
 	mux.HandleFunc("GET /api/rails/top-week", s.topWeek)
 	mux.HandleFunc("GET /api/leaderboard", s.leaderboard)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
+	mux.HandleFunc("GET /api/search", s.search)
 	mux.HandleFunc("GET /api/rails/trending-tags", s.trendingTags)
 	mux.HandleFunc("POST /api/uploads", s.upload)
 	mux.HandleFunc("GET /api/notifications", s.listNotifications)

@@ -175,7 +175,7 @@ export function Sidebar({
         "relative flex shrink-0 flex-col gap-1 px-3 py-3",
         "transition-[width] duration-200 ease-out",
         isDrawer
-          ? "h-full w-full overflow-y-auto"
+          ? "min-h-full w-full flex-1 pr-11"
           : collapsed
             ? "w-[68px]"
             : "w-60",
@@ -245,8 +245,10 @@ export function Sidebar({
         collapsed={collapsed}
       />
 
-      {/* Sponsored slot pinned to the bottom */}
-      <div className="mt-auto pt-3">
+      {/* Sponsored slot. On desktop it pins to the bottom of a full-height
+          column; in the drawer it follows the nav directly — mt-auto there
+          would open a dead gap and push the card out of view. */}
+      <div className={cn("mt-auto pt-6", isDrawer && "px-2")}>
         <AdSlot collapsed={collapsed} />
       </div>
     </aside>

@@ -13,7 +13,7 @@ export function QuestionsPanel() {
 
   return (
     <div ref={scrollRef} className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-      <div className="flex w-full gap-6 px-5 pb-10">
+      <div className="flex w-full gap-4 px-3 md:gap-6 pb-10 md:px-5">
         <main className="min-w-0 flex-1 pt-1">
           <QuestionsList scrollRef={scrollRef} />
         </main>

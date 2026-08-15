@@ -60,7 +60,7 @@ export default async function ProfilePage({
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-          <div className="w-full px-5 pb-16">
+          <div className="w-full px-3 pb-16 md:px-5">
             <main className="mt-1 min-w-0">
               {/* Identity — frame-inside-tint, matching Card/JobCard. */}
               <div className="bg-muted/60 ring-border-surface-strong rounded-2xl p-1.5 ring-[0.5px]">

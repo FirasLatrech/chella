@@ -13,10 +13,14 @@ export function Shell({ children }: { children: ReactNode }) {
   // surface sliding out from under the sidebar.
   return (
     <div className="app-backdrop flex h-dvh w-full overflow-hidden">
-      <Sidebar />
+      {/* Under `md` the sidebar lives in the drawer (see MobileNav in the
+          page header) — the content panel takes the full width instead. */}
+      <div className="hidden md:flex">
+        <Sidebar />
+      </div>
       {/* Hairline edge: a 0.5px ring renders sub-pixel on retina, so the panel
           reads as a crisp seam against the glass rather than a drawn border. */}
-      <main className="bg-background ring-border-surface-strong flex min-w-0 flex-1 flex-col overflow-hidden rounded-l-2xl ring-[0.5px]">
+      <main className="bg-background ring-border-surface-strong flex min-w-0 flex-1 flex-col overflow-hidden ring-[0.5px] md:rounded-l-2xl">
         {children}
       </main>
     </div>

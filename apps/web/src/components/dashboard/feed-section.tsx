@@ -81,7 +81,7 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
             rows slide beneath it while scrolling. */}
         <div
           ref={bandRef}
-          className="bg-background/90 sticky top-0 z-30 flex w-full gap-6 px-5 pt-5 pb-3 backdrop-blur-md"
+          className="bg-background/90 sticky top-0 z-30 flex w-full gap-4 px-3 md:gap-6 pt-4 pb-3 md:px-5 md:pt-5 backdrop-blur-md"
         >
           <div className="min-w-0 flex-1">
             <Composer onPublish={publish} />
@@ -89,7 +89,7 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
           <div className="hidden w-72 shrink-0 xl:block" />
         </div>
 
-        <div className="flex w-full gap-6 px-5 pb-10">
+        <div className="flex w-full gap-4 px-3 md:gap-6 pb-10 md:px-5">
           <main className="min-w-0 flex-1">
             <FeedList scrollRef={scrollRef} />
           </main>

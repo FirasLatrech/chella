@@ -114,7 +114,7 @@ export function Notifications() {
           modal={false}
           anchor={false}
           className={cn(
-            "bg-muted/70 text-popover-foreground absolute right-0 z-50 mt-2 w-80 rounded-2xl p-1.5",
+            "bg-muted/70 text-popover-foreground absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] rounded-2xl p-1.5",
             "ring-border-surface-strong shadow-xl shadow-black/10 ring-[0.5px]",
             "supports-[backdrop-filter:blur(1px)]:backdrop-blur-md",
             "flex flex-col focus:outline-none",

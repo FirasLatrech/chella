@@ -147,9 +147,17 @@ function NavGroup({
   );
 }
 
-export function Sidebar() {
+export function Sidebar({
+  variant = "fixed",
+}: {
+  /** "drawer" renders inside the mobile off-canvas panel: always expanded,
+   *  no collapse toggle (the drawer itself is the dismissal). */
+  variant?: "fixed" | "drawer";
+} = {}) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsedState, setCollapsed] = useState(false);
+  const isDrawer = variant === "drawer";
+  const collapsed = isDrawer ? false : collapsedState;
 
   // Live counts from the feed cache (hydrated on the feed page, fetched once
   // elsewhere and shared for a minute).
@@ -166,7 +174,11 @@ export function Sidebar() {
       className={cn(
         "relative flex shrink-0 flex-col gap-1 px-3 py-3",
         "transition-[width] duration-200 ease-out",
-        collapsed ? "w-[68px]" : "w-60",
+        isDrawer
+          ? "h-full w-full overflow-y-auto"
+          : collapsed
+            ? "w-[68px]"
+            : "w-60",
       )}
     >
       {/* Brand + collapse toggle */}
@@ -193,7 +205,7 @@ export function Sidebar() {
             </span>
           )}
         </Link>
-        {collapsed ? null : (
+        {collapsed || isDrawer ? null : (
           <Button
             iconOnly
             size="sm"

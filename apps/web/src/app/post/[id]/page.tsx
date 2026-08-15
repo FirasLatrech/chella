@@ -62,12 +62,12 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                 {back.label}
               </Link>
 
-              <article className="flex gap-4">
+              <article className="flex gap-2.5 md:gap-4">
                 <VoteColumn postId={entry.id} />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
-                    <h1 className="text-2xl leading-snug font-semibold tracking-tight">
+                    <h1 className="text-xl leading-snug font-semibold tracking-tight text-balance md:text-2xl">
                       {entry.title}
                       {entry.solved ? (
                         <span className="ml-2 inline-flex translate-y-[-2px] items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 align-middle text-xs font-medium text-emerald-600 dark:text-emerald-500">

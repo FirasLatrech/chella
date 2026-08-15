@@ -30,7 +30,7 @@ export default async function JobsPage() {
   });
 
   const board = (
-    <div className="w-full px-5 pb-16">
+    <div className="w-full px-3 pb-16 md:px-5">
       <main className="mt-1 min-w-0">
         <JobsBrowser />
       </main>

@@ -102,7 +102,7 @@ export function ProjectsBrowser() {
   return (
     <>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-5 pt-1 pb-4">
+      <div className="flex flex-wrap items-center gap-2 px-3 pt-1 pb-4 md:px-5">
         <SearchInput
           value={query}
           onChange={setQuery}
@@ -128,7 +128,7 @@ export function ProjectsBrowser() {
         </div>
       </div>
 
-      <div className="grid w-full gap-3 px-5 pb-10 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid w-full gap-3 px-3 pb-10 md:px-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <AnimatePresence initial={false} mode="popLayout">
           {visible.map((project) => (
             <motion.div
@@ -153,7 +153,7 @@ export function ProjectsBrowser() {
       ) : null}
 
       {visible.length === 0 && !isFetching ? (
-        <p className="text-muted-foreground px-5 pb-10 text-center text-sm">
+        <p className="text-muted-foreground px-3 pb-10 md:px-5 text-center text-sm">
           No projects match — try a different search or tag.
         </p>
       ) : null}

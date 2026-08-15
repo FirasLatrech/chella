@@ -100,8 +100,8 @@ styled with our tokens. Components live in `apps/web/src/components/ui/`.
   dimmed automatically in dark mode. It layers two pseudo-elements:
   `::before` is the full-cover artwork (`z-index: -2`), `::after` is a blurred
   shadow along the top edge (`z-index: -1`) that gives the header depth.
-  **⚠️ The current image is copied from aside.com and is their artwork.
-  Replace it with owned or permissively-licensed art before public launch.**
+  The owner has confirmed they hold the rights to the current sky image, so
+  it ships as-is — no replacement needed.
 - Anything sitting on the backdrop (sidebar pills, the reputation card) uses a
   translucent surface plus `backdrop-blur`, not an opaque fill — an opaque
   panel reads as a flat patch against the sky.

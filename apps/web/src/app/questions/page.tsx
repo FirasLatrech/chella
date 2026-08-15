@@ -18,14 +18,22 @@ import { fetchFeed, fetchPostPage, requireAuth } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-export default async function QuestionsPage() {
+export default async function QuestionsPage({
+  searchParams,
+}: PageProps<"/questions">) {
   await requireAuth("/questions");
+  // Prefetch the SAME key the client will read, filter included — otherwise
+  // a ?tag= landing SSRs an empty list and only fills in after hydration.
+  const { tag } = await searchParams;
+  const listParams: Record<string, string> = { kind: "question" };
+  if (typeof tag === "string" && tag) listParams.tag = tag;
+
   const queryClient = getQueryClient();
   await Promise.all([
     queryClient.prefetchQuery({ queryKey: queryKeys.feed, queryFn: fetchFeed }),
     queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.infinite({ kind: "question" }),
-      queryFn: () => fetchPostPage({ kind: "question" }),
+      queryKey: queryKeys.infinite(listParams),
+      queryFn: () => fetchPostPage(listParams),
       initialPageParam: "",
     }),
   ]);

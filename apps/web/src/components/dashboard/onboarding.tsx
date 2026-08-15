@@ -58,7 +58,7 @@ export function Onboarding() {
       icon: UserCircleIcon,
       label: "Complete your profile",
       body: "A bio, a link or your CV. Posting unlocks once there's something here.",
-      href: `/people/${me.handle}`,
+      href: `/people/${me.handle}?edit=1`,
       cta: "Add details",
     },
     {

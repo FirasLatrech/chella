@@ -2,6 +2,9 @@
 
 import { TabGroup } from "@headlessui/react";
 import { useCallback, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { CloseCircleIcon } from "@solar-icons/react/bold-duotone";
 import { Tabs, TabItem } from "@/components/ui/tabs";
 import { QuestionRow, type QuestionEntry } from "./question-row";
 import { VirtualList } from "@/components/dashboard/virtual-list";
@@ -17,15 +20,24 @@ const FILTERS = [
   { label: "Solved", match: (q: QuestionEntry) => Boolean(q.solved) },
 ] as const;
 
-const PARAMS = { kind: "question" };
-
 export function QuestionsList({
   scrollRef,
 }: {
   scrollRef: React.RefObject<HTMLElement | null>;
 }) {
+  // ?tag= filters server-side (the trending rail and the search palette both
+  // link here), so the filter survives paging instead of only matching the
+  // pages already loaded.
+  const searchParams = useSearchParams();
+  const tag = searchParams.get("tag") ?? "";
+  const params = useMemo(() => {
+    const next: Record<string, string> = { kind: "question" };
+    if (tag) next.tag = tag;
+    return next;
+  }, [tag]);
+
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfinitePosts(PARAMS);
+    useInfinitePosts(params);
   const entries = useMemo(
     () => questionsFromFeed(data?.pages.flatMap((p) => p.items) ?? []),
     [data],
@@ -57,6 +69,19 @@ export function QuestionsList({
   return (
     <TabGroup selectedIndex={filter} onChange={onChange}>
       <div ref={topRef} />
+
+      {tag ? (
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-muted-foreground text-xs">Filtered by</span>
+          <Link
+            href="/questions"
+            className="bg-brand/10 text-brand-content hover:bg-brand/15 flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+          >
+            {tag}
+            <CloseCircleIcon size={13} />
+          </Link>
+        </div>
+      ) : null}
 
       <div className="bg-background/85 sticky top-0 z-20 -mx-3 mb-1 flex items-center justify-between px-3 py-2 backdrop-blur-md">
         <Tabs>

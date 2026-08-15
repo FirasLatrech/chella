@@ -127,7 +127,7 @@ export async function RightRail() {
             tags.map((tag) => (
               <Link
                 key={tag.name}
-                href="/questions"
+                href={`/questions?tag=${encodeURIComponent(tag.name)}`}
                 className="hover:bg-accent/70 group flex flex-col gap-1.5 rounded-lg px-2 py-2 transition-colors"
               >
                 <span className="flex items-center gap-2">

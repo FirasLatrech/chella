@@ -8,10 +8,19 @@ import { fetchFeed, fetchPostPage, requireAuth } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: PageProps<"/projects">) {
   await requireAuth("/projects");
+  // Same key the browser will read, ?tag= included.
+  const { tag } = await searchParams;
   const queryClient = getQueryClient();
-  const initialParams = { kind: "project", q: "", tag: "", sort: "top" };
+  const initialParams = {
+    kind: "project",
+    q: "",
+    tag: typeof tag === "string" ? tag : "",
+    sort: "top",
+  };
   await Promise.all([
     // Initial browse state, so the grid SSRs with data…
     queryClient.prefetchInfiniteQuery({

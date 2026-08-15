@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ProjectCard, type ProjectCardModel } from "./project-card";
@@ -32,7 +33,10 @@ export function projectSearchParams(q: string, tag: string, sort: Sort) {
 export function ProjectsBrowser() {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [tag, setTag] = useState("all");
+  // ?tag= seeds the dropdown so links from the search palette and the
+  // trending rail arrive already filtered.
+  const searchParams = useSearchParams();
+  const [tag, setTag] = useState(() => searchParams.get("tag") ?? "all");
   const [sort, setSort] = useState<Sort>("top");
 
   useEffect(() => {

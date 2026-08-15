@@ -5,7 +5,6 @@ import { requireAuth } from "@/lib/api";
 // Sidebar destinations that exist as routes but have no content yet.
 const SECTIONS: Record<string, string> = {
   people: "People",
-  sponsor: "Become a sponsor",
 };
 
 export function generateStaticParams() {

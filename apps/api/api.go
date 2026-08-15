@@ -36,6 +36,7 @@ type feedItem struct {
 	Saved    bool     `json:"saved,omitempty"`
 	Edited   bool     `json:"edited,omitempty"`
 	Mine     bool     `json:"mine,omitempty"`
+	Avatar   string   `json:"avatar,omitempty"`
 }
 
 type replyItem struct {
@@ -48,6 +49,7 @@ type replyItem struct {
 	MyVote   bool   `json:"myVote,omitempty"`
 	Edited   bool   `json:"edited,omitempty"`
 	Mine     bool   `json:"mine,omitempty"`
+	Avatar   string `json:"avatar,omitempty"`
 }
 
 type contentEntry struct {
@@ -97,7 +99,8 @@ const listQueryBase = `
 	       coalesce((select direction from post_votes v where v.post_id = p.id and v.user_id = $1), 0),
 	       exists(select 1 from saved_posts sp2 where sp2.post_id = p.id and sp2.user_id = $1),
 	       p.edited_at is not null,
-	       p.author_id = $1
+	       p.author_id = $1,
+	       u.avatar_url
 	from posts p
 	join users u on u.id = p.author_id`
 
@@ -113,7 +116,7 @@ func scanFeedItems(rows pgx.Rows) ([]feedItem, error) {
 		if err := rows.Scan(&id, &it.Kind, &it.Title, &it.Excerpt, &it.Author,
 			&createdAt, &it.Tags, &it.Votes, &it.Views, &it.Solved,
 			&it.HasImage, &it.Image, &it.Replies, &it.MyVote, &it.Saved,
-			&it.Edited, &it.Mine); err != nil {
+			&it.Edited, &it.Mine, &it.Avatar); err != nil {
 			return nil, err
 		}
 		it.ID = fmt.Sprint(id)
@@ -271,14 +274,15 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 		       coalesce((select direction from post_votes v where v.post_id = p.id and v.user_id = $2), 0),
 		       exists(select 1 from saved_posts sp2 where sp2.post_id = p.id and sp2.user_id = $2),
 		       p.edited_at is not null,
-		       p.author_id = $2
+		       p.author_id = $2,
+		       u.avatar_url
 		from posts p
 		join users u on u.id = p.author_id
 		where p.id = $1`, id, meID).
 		Scan(&pid, &entry.Kind, &entry.Title, &entry.Excerpt, &entry.Author,
 			&createdAt, &entry.Tags, &entry.Votes, &entry.Views, &entry.Solved,
 			&entry.HasImage, &entry.Image, &entry.Blocks, &entry.Replies,
-			&entry.MyVote, &entry.Saved, &entry.Edited, &entry.Mine)
+			&entry.MyVote, &entry.Saved, &entry.Edited, &entry.Mine, &entry.Avatar)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
@@ -292,7 +296,8 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 		       r.accepted,
 		       exists(select 1 from reply_votes v where v.reply_id = r.id and v.user_id = $2),
 		       r.edited_at is not null,
-		       r.author_id = $2
+		       r.author_id = $2,
+		       u.avatar_url
 		from replies r
 		join users u on u.id = r.author_id
 		where r.post_id = $1
@@ -312,7 +317,8 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 			replyTime time.Time
 		)
 		if err := rows.Scan(&rid, &rep.Author, &replyTime, &rep.Text,
-			&rep.Votes, &rep.Accepted, &rep.MyVote, &rep.Edited, &rep.Mine); err != nil {
+			&rep.Votes, &rep.Accepted, &rep.MyVote, &rep.Edited, &rep.Mine,
+			&rep.Avatar); err != nil {
 			log.Printf("scan reply: %v", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
 			return

@@ -168,6 +168,7 @@ export interface ProfileDetail {
   linkedin: string;
   website: string;
   cvUrl: string;
+  avatar: string;
 }
 
 export function useMe() {

@@ -10,6 +10,7 @@ import {
   PenNewSquareIcon,
   TrashBinTrashIcon,
 } from "@solar-icons/react/bold-duotone";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { MediaTrigger } from "@/components/ui/media-viewer";
@@ -40,8 +41,10 @@ export function EditProfileDialog({
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const avatarRef = useRef<HTMLInputElement>(null);
 
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 
@@ -72,6 +75,24 @@ export function EditProfileDialog({
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function pickAvatar(file: File | undefined) {
+    if (!file) return;
+    setError("");
+    setAvatarUploading(true);
+    try {
+      set("avatar")(await uploadFile(file));
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        router.push(`/login?next=/people/${handle}`);
+        return;
+      }
+      setError(e instanceof ApiError ? e.message : "Upload failed — try again.");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarRef.current) avatarRef.current.value = "";
     }
   }
 
@@ -154,6 +175,53 @@ export function EditProfileDialog({
         {/* Inset panel — the fields scroll inside it, the footer never moves. */}
         <div className="bg-popover ring-border-surface-strong scroll-slim min-h-0 flex-1 overflow-y-auto rounded-xl p-4 shadow-sm shadow-black/5 ring-[0.5px]">
           <div className="flex flex-col gap-4">
+            {/* Avatar — uploads immediately, like the CV. Without one the
+                generated sky crop stands in, so this is never required. */}
+            <div className="flex items-center gap-3">
+              <Avatar
+                seed={handle}
+                src={form.avatar || undefined}
+                size="xl"
+                className="size-16"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={avatarUploading}
+                    onClick={() => avatarRef.current?.click()}
+                  >
+                    <CloudUploadIcon size={15} />
+                    {avatarUploading
+                      ? "Uploading…"
+                      : form.avatar
+                        ? "Change photo"
+                        : "Upload photo"}
+                  </Button>
+                  {form.avatar ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => set("avatar")("")}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="text-muted-foreground mt-1 text-[11px]">
+                  PNG, JPEG, WebP or GIF, up to 5 MB.
+                </p>
+              </div>
+              <input
+                ref={avatarRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => pickAvatar(e.target.files?.[0])}
+              />
+            </div>
+
             <label className="block">
               <span className="text-muted-foreground mb-1.5 block text-xs font-medium">
                 Bio
@@ -239,7 +307,7 @@ export function EditProfileDialog({
             <Button
               variant="primary"
               size="sm"
-              disabled={saving || uploading || !dirty}
+              disabled={saving || uploading || avatarUploading || !dirty}
               onClick={save}
             >
               {saving ? "Saving…" : "Save changes"}

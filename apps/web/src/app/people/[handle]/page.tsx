@@ -65,7 +65,7 @@ export default async function ProfilePage({
               {/* Identity — frame-inside-tint, matching Card/JobCard. */}
               <div className="bg-muted/60 ring-border-surface-strong rounded-2xl p-1.5 ring-[0.5px]">
                 <div className="bg-surface-primary ring-border-surface-strong flex flex-col items-center gap-4 rounded-xl p-6 text-center ring-[0.5px] sm:flex-row sm:text-left">
-                  <Avatar seed={profile.handle} size="xl" className="size-20" />
+                  <Avatar seed={profile.handle} src={profile.avatar} size="xl" className="size-20" />
                   <div className="min-w-0 flex-1">
                     <h1 className="text-xl font-semibold tracking-tight">
                       {profile.name}
@@ -146,6 +146,7 @@ export default async function ProfilePage({
                           linkedin: profile.linkedin,
                           website: profile.website,
                           cvUrl: profile.cvUrl,
+                          avatar: profile.avatar,
                         }}
                       />
                     ) : null}

@@ -21,7 +21,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4120";
 
 interface SearchResults {
   posts: FeedEntry[];
-  people: { handle: string; name: string; tags: string[]; reputation: number }[];
+  people: {
+    handle: string;
+    name: string;
+    avatar?: string;
+    tags: string[];
+    reputation: number;
+  }[];
   tags: { name: string; posts: number }[];
 }
 
@@ -82,7 +88,7 @@ export function SearchPalette() {
       section: "People",
       node: (
         <>
-          <Avatar seed={p.handle} size="xs" />
+          <Avatar seed={p.handle} src={p.avatar} size="xs" />
           <span className="min-w-0 flex-1 truncate">
             {p.name}
             <span className="text-muted-foreground"> @{p.handle}</span>

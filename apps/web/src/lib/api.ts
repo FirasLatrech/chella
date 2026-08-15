@@ -139,6 +139,7 @@ export interface Profile {
   linkedin: string;
   website: string;
   cvUrl: string;
+  avatar: string;
   badges?: ProfileBadge[];
 }
 
@@ -212,6 +213,7 @@ export async function fetchProfileStats(handle: string): Promise<
       linkedin: string;
       website: string;
       badges: ProfileBadge[];
+      avatar: string;
     })
   | null
 > {
@@ -245,6 +247,7 @@ export async function fetchProfileStats(handle: string): Promise<
     linkedin: detail.linkedin,
     website: detail.website,
     cvUrl: detail.cvUrl,
+    avatar: detail.avatar,
     activity,
     tagRanks: detail.tagRanks ?? [],
     badges: detail.badges ?? [],

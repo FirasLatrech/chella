@@ -45,6 +45,8 @@ export interface FeedEntry {
   edited?: boolean;
   /** The requesting user wrote this. */
   mine?: boolean;
+  /** Author's uploaded avatar, when they have one. */
+  avatar?: string;
 }
 
 const KIND: Record<
@@ -170,7 +172,7 @@ export function FeedItem({ entry }: { entry: FeedEntry }) {
 
         <div className="mt-2.5 flex items-center gap-2">
           <AuthorLink handle={entry.author} className="flex items-center gap-2">
-            <Avatar seed={entry.author} size="xs" />
+            <Avatar seed={entry.author} src={entry.avatar} size="xs" />
             <span className="text-muted-foreground truncate text-xs">
               @{entry.author}
             </span>

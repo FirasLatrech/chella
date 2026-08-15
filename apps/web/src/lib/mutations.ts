@@ -53,6 +53,7 @@ export interface ProfileDetailsInput {
   linkedin: string;
   website: string;
   cvUrl: string;
+  avatar: string;
 }
 
 export function updateProfile(input: ProfileDetailsInput) {

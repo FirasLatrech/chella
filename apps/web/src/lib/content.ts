@@ -32,6 +32,8 @@ export interface Reply {
   edited?: boolean;
   /** The requesting user wrote this. */
   mine?: boolean;
+  /** Author's uploaded avatar, when they have one. */
+  avatar?: string;
 }
 
 export interface ContentEntry extends Omit<FeedEntry, "replies"> {

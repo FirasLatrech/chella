@@ -34,12 +34,13 @@ type profile struct {
 	Linkedin   string        `json:"linkedin"`
 	Website    string        `json:"website"`
 	CvURL      string        `json:"cvUrl"`
+	Avatar     string        `json:"avatar"`
 	Badges     []badge       `json:"badges"`
 }
 
 const profileCountsQuery = `
 	select u.id, u.handle, u.name, u.created_at,
-	  u.bio, u.github, u.linkedin, u.website, u.cv_url,
+	  u.bio, u.github, u.linkedin, u.website, u.cv_url, u.avatar_url,
 	  (select count(*) from posts p where p.author_id = u.id),
 	  (select count(*) from replies r where r.author_id = u.id),
 	  (select count(*) from replies r where r.author_id = u.id and r.accepted)
@@ -54,7 +55,7 @@ func (s *server) getProfile(w http.ResponseWriter, r *http.Request) {
 	)
 	err := s.db.QueryRow(r.Context(), profileCountsQuery, r.PathValue("handle")).
 		Scan(&userID, &p.Handle, &p.Name, &joined,
-			&p.Bio, &p.Github, &p.Linkedin, &p.Website, &p.CvURL,
+			&p.Bio, &p.Github, &p.Linkedin, &p.Website, &p.CvURL, &p.Avatar,
 			&p.Posts, &p.Answers, &p.Accepted)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such user"})
@@ -128,7 +129,7 @@ func (s *server) listUserPosts(w http.ResponseWriter, r *http.Request) {
 // GET /api/users — the People directory, most reputation first.
 func (s *server) listUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.Query(r.Context(), `
-		select u.id, u.handle, u.name, u.created_at,
+		select u.id, u.handle, u.name, u.created_at, u.avatar_url,
 		  (select count(*) from posts p where p.author_id = u.id),
 		  (select count(*) from replies rp where rp.author_id = u.id),
 		  (select count(*) from replies rp where rp.author_id = u.id and rp.accepted)
@@ -150,7 +151,7 @@ func (s *server) listUsers(w http.ResponseWriter, r *http.Request) {
 			ur     userRow
 			joined time.Time
 		)
-		if err := rows.Scan(&ur.id, &ur.p.Handle, &ur.p.Name, &joined,
+		if err := rows.Scan(&ur.id, &ur.p.Handle, &ur.p.Name, &joined, &ur.p.Avatar,
 			&ur.p.Posts, &ur.p.Answers, &ur.p.Accepted); err != nil {
 			log.Printf("scan user: %v", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})

@@ -87,7 +87,7 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                       href={`/people/${entry.author}`}
                       className="hover:opacity-80 flex items-center gap-2 transition-opacity"
                     >
-                      <Avatar seed={entry.author} size="xs" />
+                      <Avatar seed={entry.author} src={entry.avatar} size="xs" />
                       <span className="text-foreground font-medium">
                         @{entry.author}
                       </span>
@@ -152,7 +152,7 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                   href={`/people/${entry.author}`}
                   className="hover:bg-accent/70 flex items-center gap-3 rounded-lg p-1.5 transition-colors"
                 >
-                  <Avatar seed={entry.author} size="lg" />
+                  <Avatar seed={entry.author} src={entry.avatar} size="lg" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium capitalize">
                       {entry.author}

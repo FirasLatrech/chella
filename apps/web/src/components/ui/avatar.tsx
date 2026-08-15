@@ -46,6 +46,8 @@ export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 export interface AvatarProps {
   /** Stable identifier — a handle or user id. Drives which patch of sky. */
   seed: string;
+  /** Uploaded photo. Falls back to the sky crop when absent. */
+  src?: string;
   size?: AvatarSize;
   className?: string;
   ring?: boolean;
@@ -53,13 +55,18 @@ export interface AvatarProps {
 
 export function Avatar({
   seed,
+  src,
   size = "md",
   className,
   ring = true,
 }: AvatarProps) {
   return (
     <span
-      style={skyPosition(seed)}
+      style={
+        src
+          ? { backgroundImage: `url(${src})`, backgroundPosition: "center" }
+          : skyPosition(seed)
+      }
       aria-hidden="true"
       className={cn(
         // Rounded square, not a circle — squircle shaping comes from the

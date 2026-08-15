@@ -194,7 +194,7 @@ function ReplyCard({
       )}
     >
       <div className="flex items-center gap-2">
-        <Avatar seed={reply.author} size="xs" />
+        <Avatar seed={reply.author} src={reply.avatar} size="xs" />
         <span className="text-sm font-medium">@{reply.author}</span>
         <span className="text-muted-foreground/70 text-[11px]">
           {reply.time}

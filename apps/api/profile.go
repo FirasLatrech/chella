@@ -20,6 +20,7 @@ type profileInput struct {
 	Linkedin string `json:"linkedin"`
 	Website  string `json:"website"`
 	CvURL    string `json:"cvUrl"`
+	Avatar   string `json:"avatar"`
 }
 
 // normalizeLink cleans a user-pasted link: trims, prepends https:// when the
@@ -99,11 +100,17 @@ func (s *server) updateProfile(w http.ResponseWriter, r *http.Request) {
 			map[string]string{"error": "upload the CV first, then save"})
 		return
 	}
+	// Same for the avatar, and it must be an image (not a stored PDF).
+	if in.Avatar != "" && !s.validStoredImage(in.Avatar) {
+		writeJSON(w, http.StatusBadRequest,
+			map[string]string{"error": "upload the avatar first, then save"})
+		return
+	}
 
 	_, err := s.db.Exec(r.Context(), `
 		update users set bio = $1, github = $2, linkedin = $3, website = $4,
-		  cv_url = $5 where id = $6`,
-		in.Bio, github, linkedin, website, in.CvURL, u.ID)
+		  cv_url = $5, avatar_url = $6 where id = $7`,
+		in.Bio, github, linkedin, website, in.CvURL, in.Avatar, u.ID)
 	if err != nil {
 		log.Printf("update profile: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
@@ -111,7 +118,7 @@ func (s *server) updateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, profileInput{
 		Bio: in.Bio, Github: github, Linkedin: linkedin,
-		Website: website, CvURL: in.CvURL,
+		Website: website, CvURL: in.CvURL, Avatar: in.Avatar,
 	})
 }
 

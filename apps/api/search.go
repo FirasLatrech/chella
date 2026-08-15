@@ -18,6 +18,7 @@ import (
 type searchPerson struct {
 	Handle     string   `json:"handle"`
 	Name       string   `json:"name"`
+	Avatar     string   `json:"avatar,omitempty"`
 	Tags       []string `json:"tags"`
 	Reputation int      `json:"reputation"`
 }
@@ -65,7 +66,7 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 
 	// People — handle or display name.
 	peopleRows, err := s.db.Query(r.Context(), `
-		select u.id, u.handle, u.name
+		select u.id, u.handle, u.name, u.avatar_url
 		from users u
 		where u.handle ilike $1 or u.name ilike $1
 		order by (case when u.handle ilike $2 or u.name ilike $2 then 0 else 1 end),
@@ -80,11 +81,12 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 		id     int64
 		handle string
 		name   string
+		avatar string
 	}
 	found := []person{}
 	for peopleRows.Next() {
 		var p person
-		if err := peopleRows.Scan(&p.id, &p.handle, &p.name); err != nil {
+		if err := peopleRows.Scan(&p.id, &p.handle, &p.name, &p.avatar); err != nil {
 			peopleRows.Close()
 			log.Printf("scan search people: %v", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
@@ -109,7 +111,7 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 				t = []string{}
 			}
 			out.People = append(out.People, searchPerson{
-				Handle: p.handle, Name: p.name, Tags: t,
+				Handle: p.handle, Name: p.name, Avatar: p.avatar, Tags: t,
 				Reputation: totals[p.id],
 			})
 		}

@@ -73,6 +73,17 @@ func relTime(t time.Time) string {
 	}
 }
 
+// maxJSONBody caps request bodies. Only the upload endpoint was bounded, so
+// an unauthenticated POST could stream gigabytes into memory before any
+// validation ran.
+const maxJSONBody = 1 << 20 // 1 MB
+
+// decodeJSON reads a size-limited JSON body.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

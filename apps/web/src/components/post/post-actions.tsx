@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { RichEditor } from "@/components/ui/rich-editor";
 import { OwnerMenu } from "./owner-menu";
 import { useEntry } from "@/lib/queries";
-import { queryKeys } from "@/lib/keys";
+import { invalidateEntryLists, removeEntryEverywhere } from "@/lib/cache";
 import { ApiError, deletePost, updatePost } from "@/lib/mutations";
 import { blocksToDoc } from "@/lib/blocks";
 import type { Block } from "@/lib/content";
@@ -39,8 +39,7 @@ export function PostActions({ postId }: { postId: string }) {
       updatePost(postId, { title: title.trim(), blocks, body: text, tags }),
     onSuccess: async () => {
       setEditing(false);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.entry(postId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.feed });
+      invalidateEntryLists(queryClient, postId);
       router.refresh();
     },
     onError: (e) => {
@@ -55,8 +54,10 @@ export function PostActions({ postId }: { postId: string }) {
   const remove = useMutation({
     mutationFn: () => deletePost(postId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feed });
-      queryClient.invalidateQueries({ queryKey: queryKeys.saved });
+      // Drop it from the loaded pages immediately — invalidation alone would
+      // leave the row on screen until the refetch lands.
+      removeEntryEverywhere(queryClient, postId);
+      invalidateEntryLists(queryClient);
       router.push("/");
     },
     onError: (e) => {

@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
+import { formatPoints } from "@/lib/format";
 import { Avatar, skyPosition } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { AuthorLink } from "@/components/dashboard/author-link";
@@ -91,7 +92,7 @@ function Stat({
       )}
     >
       <Icon size={13} />
-      {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+      {formatPoints(value)}
     </span>
   );
 }

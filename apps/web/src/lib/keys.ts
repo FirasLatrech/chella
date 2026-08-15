@@ -6,7 +6,6 @@ export const queryKeys = {
   entry: (id: string) => ["entry", id] as const,
   me: ["me"] as const,
   notifications: ["notifications"] as const,
-  search: (params: Record<string, string>) => ["posts", params] as const,
   leaderboard: (params: Record<string, string>) =>
     ["leaderboard", params] as const,
   profile: (handle: string) => ["profile", handle] as const,

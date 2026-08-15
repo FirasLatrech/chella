@@ -18,6 +18,7 @@ type server struct {
 	db      *pgxpool.Pool
 	storage storage
 	mail    mailer
+	boards  *boardCache
 }
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 	purgeExpired(ctx, pool)
 
 	st := newStorage()
-	s := &server{db: pool, storage: st, mail: newMailer()}
+	s := &server{db: pool, storage: st, mail: newMailer(), boards: newBoardCache()}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)

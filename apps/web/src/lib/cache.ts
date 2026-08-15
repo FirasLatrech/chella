@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { FeedEntry } from "@/components/dashboard/feed-item";
+import type { ContentEntry } from "@/lib/content";
 import type { PostPage } from "@/lib/queries";
 import { queryKeys } from "@/lib/keys";
 
@@ -26,7 +27,6 @@ export function patchEntryEverywhere(
 
   // Flat lists.
   queryClient.setQueryData<FeedEntry[]>(queryKeys.feed, patchList);
-  queryClient.setQueriesData<FeedEntry[]>({ queryKey: ["posts"] }, patchList);
   queryClient.setQueryData<FeedEntry[]>(queryKeys.saved, patchList);
 
   // Paged lists.
@@ -42,10 +42,30 @@ export function patchEntryEverywhere(
       },
   );
 
-  // The detail entry carries the same fields.
-  queryClient.setQueryData<FeedEntry>(queryKeys.entry(id), (e) =>
-    e ? change(e) : e,
-  );
+  // The detail entry carries the same fields plus blocks/discussion, so it is
+  // patched through its own type — narrowing it to FeedEntry would let a
+  // future updater silently drop the body.
+  queryClient.setQueryData<ContentEntry>(queryKeys.entry(id), (e) => {
+    if (!e) return e;
+    // ContentEntry's `replies` is an optional count while FeedEntry's is
+    // required, so the entry is widened for the change and its own fields
+    // are re-applied on top.
+    const patched = change({ ...e, replies: e.replies ?? 0 });
+    return { ...e, ...patched, replies: e.replies };
+  });
+}
+
+/*
+ * Refetch every list an entry can appear in. Mutations must call this rather
+ * than invalidating `feed` alone: the ["infinite"] key is what actually
+ * renders the feed, questions and projects lists, and it has no polling
+ * interval of its own to paper over a missed invalidation.
+ */
+export function invalidateEntryLists(queryClient: QueryClient, id?: string) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.feed });
+  queryClient.invalidateQueries({ queryKey: ["infinite"] });
+  queryClient.invalidateQueries({ queryKey: queryKeys.saved });
+  if (id) queryClient.invalidateQueries({ queryKey: queryKeys.entry(id) });
 }
 
 /** Drops an entry from every cached list — used after a delete. */
@@ -53,7 +73,6 @@ export function removeEntryEverywhere(queryClient: QueryClient, id: string) {
   const drop = (entries?: FeedEntry[]) => entries?.filter((e) => e.id !== id);
 
   queryClient.setQueryData<FeedEntry[]>(queryKeys.feed, drop);
-  queryClient.setQueriesData<FeedEntry[]>({ queryKey: ["posts"] }, drop);
   queryClient.setQueryData<FeedEntry[]>(queryKeys.saved, drop);
   queryClient.setQueriesData<InfiniteFeed>(
     { queryKey: ["infinite"] },

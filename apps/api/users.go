@@ -107,6 +107,12 @@ func (s *server) getProfile(w http.ResponseWriter, r *http.Request) {
 		p.Badges = []badge{}
 	}
 
+	// The notification preference is the owner's business alone; this
+	// endpoint is public, so strip it for everyone else.
+	if me := s.currentUser(r); me == nil || me.ID != userID {
+		p.EmailNotifications = false
+	}
+
 	writeJSON(w, http.StatusOK, p)
 }
 

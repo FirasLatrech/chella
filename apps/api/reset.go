@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -25,7 +25,7 @@ func (s *server) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Email string `json:"email"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
@@ -46,10 +46,19 @@ func (s *server) forgotPassword(w http.ResponseWriter, r *http.Request) {
 						"The link works once and expires in an hour.</p>"+
 						"<p>If you didn't ask for this, you can ignore this email.</p>",
 					"Reset password", link)
-				if merr := s.mail.Send(r.Context(), email,
-					"Reset your Chelaa password", body); merr != nil {
-					log.Printf("reset email: %v", merr)
-				}
+				// Sent asynchronously: a synchronous provider round-trip
+				// makes a registered address measurably slower than an
+				// unknown one, which enumerates accounts despite the
+				// identical response body.
+				go func(to, html string) {
+					ctx, cancel := context.WithTimeout(
+						context.Background(), 15*time.Second)
+					defer cancel()
+					if merr := s.mail.Send(ctx, to,
+						"Reset your Chelaa password", html); merr != nil {
+						log.Printf("reset email: %v", merr)
+					}
+				}(email, body)
 			}
 		}
 	}
@@ -64,7 +73,7 @@ func (s *server) resetPassword(w http.ResponseWriter, r *http.Request) {
 		Token    string `json:"token"`
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}

@@ -112,6 +112,18 @@ type boardRow struct {
 // tag="" → all content, otherwise scoped to posts carrying that tag
 // (replies attribute through their post).
 func (s *server) leaderboardRows(ctx context.Context, since *time.Time, tag string) ([]boardRow, error) {
+	// Cache key: the window start (rounded, so ticking clocks don't miss) and
+	// the tag scope. See boardcache.go for why this exists.
+	key := tag + "|"
+	if since == nil {
+		key += "all"
+	} else {
+		key += since.Truncate(time.Minute).Format(time.RFC3339)
+	}
+	if cached, ok := s.boards.get(key); ok {
+		return cached, nil
+	}
+
 	rows, err := s.db.Query(ctx, leaderboardQuery, since, tag)
 	if err != nil {
 		return nil, err
@@ -126,7 +138,11 @@ func (s *server) leaderboardRows(ctx context.Context, since *time.Time, tag stri
 		}
 		out = append(out, b)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	s.boards.put(key, out)
+	return out, nil
 }
 
 // periodSince maps a period name to a rolling window start.

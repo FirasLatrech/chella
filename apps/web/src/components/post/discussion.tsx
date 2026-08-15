@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { RichEditor } from "@/components/ui/rich-editor";
 import { OwnerMenu } from "./owner-menu";
+import { invalidateEntryLists } from "@/lib/cache";
 import { playBounceSound, useInteractionSound } from "@/lib/sound";
 import {
   createReply,
@@ -158,8 +159,7 @@ function ReplyCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(reply.text);
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.entry(postId) });
+  const invalidate = () => invalidateEntryLists(queryClient, postId);
 
   const save = useMutation({
     mutationFn: () => updateReply(reply.id, draft.trim()),

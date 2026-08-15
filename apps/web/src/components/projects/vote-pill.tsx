@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useInteractionSound } from "@/lib/sound";
 import { votePost, ApiError } from "@/lib/mutations";
 import { queryKeys } from "@/lib/queries";
-import { patchEntryEverywhere } from "@/lib/cache";
+import { invalidateEntryLists, patchEntryEverywhere } from "@/lib/cache";
 import type { FeedEntry } from "@/components/dashboard/feed-item";
 
 /*
@@ -47,14 +47,25 @@ export function VotePill({
     },
     onError: (err, _vars, context) => {
       if (context?.previous) {
+        // The optimistic patch went to every cache, so the rollback must too
+        // — restoring `feed` alone left a phantom vote in the paged grid the
+        // user is actually looking at.
+        const prev = context.previous.find((e) => e.id === postId);
         queryClient.setQueryData(queryKeys.feed, context.previous);
+        if (prev) {
+          patchEntryEverywhere(queryClient, postId, (e) => ({
+            ...e,
+            votes: prev.votes,
+            myVote: prev.myVote ?? 0,
+          }));
+        }
       }
       if (err instanceof ApiError && err.status === 401) {
         router.push("/login");
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feed });
+      invalidateEntryLists(queryClient, postId);
     },
   });
 

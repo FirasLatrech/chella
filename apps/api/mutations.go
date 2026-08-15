@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -49,7 +48,7 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 		Tags     []string `json:"tags"`
 		ImageURL string   `json:"imageUrl"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
@@ -68,6 +67,15 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(in.Tags) > 3 {
 		in.Tags = in.Tags[:3]
+	}
+	// Bound each tag: they are compared with lower()/unnest across the feed
+	// and the leaderboard, so unbounded strings are a cost multiplier.
+	for i, t := range in.Tags {
+		t = strings.TrimSpace(t)
+		if len([]rune(t)) > 30 {
+			t = string([]rune(t)[:30])
+		}
+		in.Tags[i] = t
 	}
 
 	// Rich blocks from the editor are whitelisted server-side; a plain body
@@ -108,13 +116,16 @@ func (s *server) createReply(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Text string `json:"text"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
 	in.Text = strings.TrimSpace(in.Text)
-	if in.Text == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "reply is empty"})
+	// Same bound as updateReply — otherwise a reply can be created that its
+	// own edit endpoint refuses to accept back.
+	if in.Text == "" || len([]rune(in.Text)) > 5000 {
+		writeJSON(w, http.StatusBadRequest,
+			map[string]string{"error": "reply must be 1–5000 characters"})
 		return
 	}
 
@@ -150,7 +161,7 @@ func (s *server) votePost(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Direction int `json:"direction"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil ||
+	if err := decodeJSON(w, r, &in); err != nil ||
 		in.Direction < -1 || in.Direction > 1 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "direction must be -1, 0 or 1"})
 		return
@@ -203,7 +214,7 @@ func (s *server) voteReply(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Up bool `json:"up"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -136,7 +135,7 @@ type authInput struct {
 // POST /api/auth/signup
 func (s *server) signup(w http.ResponseWriter, r *http.Request) {
 	var c authInput
-	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+	if err := decodeJSON(w, r, &c); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
@@ -217,7 +216,7 @@ func (s *server) available(w http.ResponseWriter, r *http.Request) {
 // POST /api/auth/login
 func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	var c authInput
-	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+	if err := decodeJSON(w, r, &c); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}

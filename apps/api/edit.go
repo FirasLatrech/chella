@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -34,7 +33,7 @@ func (s *server) updatePost(w http.ResponseWriter, r *http.Request) {
 		Blocks []block  `json:"blocks"`
 		Tags   []string `json:"tags"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
@@ -49,6 +48,15 @@ func (s *server) updatePost(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(in.Tags) > 3 {
 		in.Tags = in.Tags[:3]
+	}
+	// Bound each tag: they are compared with lower()/unnest across the feed
+	// and the leaderboard, so unbounded strings are a cost multiplier.
+	for i, t := range in.Tags {
+		t = strings.TrimSpace(t)
+		if len([]rune(t)) > 30 {
+			t = string([]rune(t)[:30])
+		}
+		in.Tags[i] = t
 	}
 
 	blocks, bodyText := buildBlocks(in.Blocks, in.Body)
@@ -102,7 +110,7 @@ func (s *server) updateReply(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Text string `json:"text"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useInteractionSound } from "@/lib/sound";
 import { votePost, ApiError } from "@/lib/mutations";
 import { useEntry, queryKeys } from "@/lib/queries";
+import { invalidateEntryLists, patchEntryEverywhere } from "@/lib/cache";
 import type { ContentEntry } from "@/lib/content";
 
 /*
@@ -35,29 +36,31 @@ export function VoteColumn({ postId }: { postId: string }) {
       const key = queryKeys.entry(postId);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<ContentEntry>(key);
-      queryClient.setQueryData<ContentEntry>(key, (old) =>
-        old
-          ? {
-              ...old,
-              votes: old.votes - (old.myVote ?? 0) + direction,
-              myVote: direction,
-            }
-          : old,
-      );
+      // Patch every cache this post appears in, not just the detail entry —
+      // otherwise the feed row behind you keeps the stale count.
+      patchEntryEverywhere(queryClient, postId, (e) => ({
+        ...e,
+        votes: e.votes - (e.myVote ?? 0) + direction,
+        myVote: direction,
+      }));
       return { previous };
     },
     onError: (err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(queryKeys.entry(postId), context.previous);
+        const prev = context.previous;
+        queryClient.setQueryData(queryKeys.entry(postId), prev);
+        // Roll the lists back to the same snapshot.
+        patchEntryEverywhere(queryClient, postId, (e) => ({
+          ...e,
+          votes: prev.votes,
+          myVote: prev.myVote ?? 0,
+        }));
       }
       if (err instanceof ApiError && err.status === 401) {
         router.push("/login");
       }
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.entry(postId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.feed });
-    },
+    onSettled: () => invalidateEntryLists(queryClient, postId),
   });
 
   function cast(next: -1 | 1) {

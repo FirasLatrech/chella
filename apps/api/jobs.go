@@ -28,20 +28,20 @@ type jobMatch struct {
 }
 
 type jobItem struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Company     string     `json:"company"`
-	Location    string     `json:"location"`
-	Kind        string     `json:"kind"`
-	Arrangement string     `json:"arrangement"`
-	SalaryMin   *int       `json:"salaryMin,omitempty"`
-	SalaryMax   *int       `json:"salaryMax,omitempty"`
-	Currency    string     `json:"currency"`
-	Tags        []string   `json:"tags"`
-	Description string     `json:"description"`
-	ApplyURL    string     `json:"applyUrl"`
-	MinRep      int        `json:"minReputation"`
-	Time        string     `json:"time"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Company     string   `json:"company"`
+	Location    string   `json:"location"`
+	Kind        string   `json:"kind"`
+	Arrangement string   `json:"arrangement"`
+	SalaryMin   *int     `json:"salaryMin,omitempty"`
+	SalaryMax   *int     `json:"salaryMax,omitempty"`
+	Currency    string   `json:"currency"`
+	Tags        []string `json:"tags"`
+	Description string   `json:"description"`
+	ApplyURL    string   `json:"applyUrl"`
+	MinRep      int      `json:"minReputation"`
+	Time        string   `json:"time"`
 	/* Per-request, for the signed-in user. */
 	MatchedTags []jobMatch `json:"matchedTags"`
 	Qualified   bool       `json:"qualified"`

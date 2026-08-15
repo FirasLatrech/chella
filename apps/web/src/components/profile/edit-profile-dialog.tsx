@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { MediaTrigger } from "@/components/ui/media-viewer";
 import { Textarea } from "@/components/ui/input";
 import {
@@ -325,14 +326,19 @@ export function EditProfileDialog({
               ) : (
                 <Button
                   variant="secondary"
-                  size="md"
+                  size="sm"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
                 >
-                  <CloudUploadIcon size={16} />
-                  {uploading ? "Uploading…" : "Upload CV (PDF, up to 5 MB)"}
+                  <CloudUploadIcon size={15} />
+                  {uploading ? "Uploading…" : "Upload CV"}
                 </Button>
               )}
+              {!form.cvUrl ? (
+                <p className="text-muted-foreground mt-1.5 text-[11px]">
+                  PDF, up to 5 MB.
+                </p>
+              ) : null}
               <input
                 ref={fileRef}
                 type="file"
@@ -346,18 +352,7 @@ export function EditProfileDialog({
             {/* Email notifications — on by default; this is the opt-out. */}
             <section className="border-border-surface flex flex-col gap-3 border-t-[0.5px] pt-5">
               <SectionLabel>Notifications</SectionLabel>
-              <label className="flex cursor-pointer items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={form.emailNotifications !== false}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      emailNotifications: e.target.checked,
-                    }))
-                  }
-                  className="accent-brand size-4 cursor-pointer"
-                />
+              <div className="bg-muted/50 ring-border-surface flex items-center gap-3 rounded-xl px-3 py-2.5 ring-[0.5px]">
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs font-medium">
                     Email me about activity
@@ -366,7 +361,14 @@ export function EditProfileDialog({
                     Replies, upvotes and accepted answers.
                   </span>
                 </span>
-              </label>
+                <Switch
+                  aria-label="Email me about activity"
+                  checked={form.emailNotifications !== false}
+                  onChange={(checked) =>
+                    setForm((f) => ({ ...f, emailNotifications: checked }))
+                  }
+                />
+              </div>
             </section>
           </div>
         </div>

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   UserRoundedIcon,
@@ -34,9 +34,20 @@ const slug = (s: string) =>
     .slice(0, 30);
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="app-backdrop min-h-dvh" />}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [mode, setMode] = useState<Mode>("login");
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<Mode>(
+    searchParams.has("signup") ? "signup" : "login",
+  );
 
   const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");

@@ -1,19 +1,29 @@
+import { redirect } from "next/navigation";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { Shell } from "@/components/dashboard/shell";
 import { FeedSection } from "@/components/dashboard/feed-section";
 import { RightRail } from "@/components/dashboard/right-rail";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Onboarding } from "@/components/dashboard/onboarding";
+import { LandingPage } from "@/components/landing/landing-page";
 import { getQueryClient } from "@/lib/get-query-client";
 import { queryKeys } from "@/lib/keys";
-import { fetchFeed, fetchForYou, fetchPostPage, requireAuth } from "@/lib/api";
+import { fetchFeed, fetchForYou, fetchPostPage, fetchMe } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-// The server prefetches the feed (cookie-forwarded, so myVote is included)
-// and hydrates the React Query cache; the client takes over from there.
+// Guests see the landing. A valid session sees the feed. fetchMe (not the
+// proxy) is the split — a stale cookie must not bounce to /login, or it
+// loops. Unverified accounts still have to confirm before the feed.
 export default async function Home({ searchParams }: PageProps<"/">) {
-  await requireAuth("/");
+  let me = null;
+  try {
+    me = await fetchMe();
+  } catch {
+    // Landing is public — a down API must not 500 the marketing page.
+  }
+  if (!me) return <LandingPage />;
+  if (!me.emailVerified) redirect("/verify-email");
   // ?tag= filters the feed (the old /projects list is gone). It has to be
   // part of the prefetched params too — the key includes it, so prefetching
   // the unfiltered feed would miss the hydration and refetch on mount.

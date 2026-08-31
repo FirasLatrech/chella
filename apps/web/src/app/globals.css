@@ -422,6 +422,46 @@
     font-size: 0.85em;
   }
 
+  /* First-paint entrance for the public landing. CSS so it runs without
+     waiting on hydration — a JS initial={{ opacity: 0 }} would leave the
+     hero invisible for anyone slow to hydrate (or with JS off). */
+  @keyframes enter-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes enter-in {
+    from {
+      opacity: 0;
+      transform: translateX(28px) translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .enter-up {
+    animation: enter-up 0.55s ease-out both;
+  }
+
+  .enter-in {
+    animation: enter-in 0.55s ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .enter-up,
+    .enter-in {
+      animation: none;
+    }
+  }
+
   /* Translucent elevated panel, as used for Aside's floating surfaces. */
   .surface {
     background-color: var(--surface-primary);
@@ -433,4 +473,26 @@
       backdrop-filter: blur(12px);
     }
   }
+}
+
+/*
+ * Theme wipe. Unlayered so these beat the UA view-transition defaults
+ * (250ms fade on the group). If the group finishes first, the circle
+ * freezes mid-screen and only completes when the overlay is torn down.
+ */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(root) {
+  animation-duration: 400ms;
+  animation-timing-function: ease-out;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  height: 100%;
+  width: 100%;
 }

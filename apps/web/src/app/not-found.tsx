@@ -66,7 +66,7 @@ export default function NotFound() {
             )}
           >
             <ArrowLeftIcon size={16} />
-            Back to feed
+            Back home
           </Link>
         </div>
       </div>

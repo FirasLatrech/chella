@@ -10,7 +10,12 @@ import type { NextRequest } from "next/server";
  * Next 16: this file replaces the deprecated middleware.ts convention.
  */
 
-const PUBLIC_PATHS = new Set(["/login", "/forgot-password", "/reset-password"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+]);
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

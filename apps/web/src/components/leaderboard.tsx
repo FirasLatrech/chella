@@ -69,7 +69,14 @@ function Change({ value }: { value: number }) {
  * medal and name float above a step whose height encodes rank, with the
  * numeral carved into the step itself. 1st sits center, tallest.
  */
-export function LeaderboardPodium({ entries }: { entries: LeaderboardEntry[] }) {
+export function LeaderboardPodium({
+  entries,
+  linked = true,
+}: {
+  entries: LeaderboardEntry[];
+  /** Landing stage is a picture of the board — same stand, no profile hops. */
+  linked?: boolean;
+}) {
   // Visual order (2nd, 1st, 3rd) so 1st sits center and tallest.
   const [first, second, third] = entries;
   const order = [second, first, third].filter(Boolean);
@@ -79,44 +86,53 @@ export function LeaderboardPodium({ entries }: { entries: LeaderboardEntry[] }) 
       {order.map((entry) => {
         const style = PODIUM_STYLE[entry.rank] ?? PODIUM_STYLE[3];
         const isFirst = entry.rank === 1;
+        const person = (
+          <>
+            <div className="relative">
+              <div
+                aria-hidden="true"
+                className={cn(
+                  "absolute inset-0 -z-10 scale-150 rounded-full blur-xl",
+                  style.glow,
+                )}
+              />
+              <Avatar
+                seed={entry.handle}
+                size={isFirst ? "xl" : "lg"}
+                className={cn("ring-4", style.ring)}
+              />
+              <div className="bg-background absolute -right-1 -bottom-1 grid size-6 place-items-center rounded-full shadow-sm">
+                {isFirst ? (
+                  <CupStarIcon size={16} className={style.text} />
+                ) : (
+                  <MedalRibbonStarIcon size={14} className={style.text} />
+                )}
+              </div>
+            </div>
+
+            <span className="mt-2.5 max-w-full truncate text-sm font-semibold tracking-tight">
+              {entry.name}
+            </span>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {formatPoints(entry.reputation)}
+            </span>
+          </>
+        );
         return (
           <div
             key={entry.handle}
             className="flex w-24 flex-col items-center sm:w-28"
           >
-            <Link
-              href={`/people/${entry.handle}`}
-              className="flex flex-col items-center transition-opacity hover:opacity-80"
-            >
-              <div className="relative">
-                <div
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute inset-0 -z-10 scale-150 rounded-full blur-xl",
-                    style.glow,
-                  )}
-                />
-                <Avatar
-                  seed={entry.handle}
-                  size={isFirst ? "xl" : "lg"}
-                  className={cn("ring-4", style.ring)}
-                />
-                <div className="bg-background absolute -right-1 -bottom-1 grid size-6 place-items-center rounded-full shadow-sm">
-                  {isFirst ? (
-                    <CupStarIcon size={16} className={style.text} />
-                  ) : (
-                    <MedalRibbonStarIcon size={14} className={style.text} />
-                  )}
-                </div>
-              </div>
-
-              <span className="mt-2.5 max-w-full truncate text-sm font-semibold tracking-tight">
-                {entry.name}
-              </span>
-              <span className="text-muted-foreground text-xs tabular-nums">
-                {formatPoints(entry.reputation)}
-              </span>
-            </Link>
+            {linked ? (
+              <Link
+                href={`/people/${entry.handle}`}
+                className="flex flex-col items-center transition-opacity hover:opacity-80"
+              >
+                {person}
+              </Link>
+            ) : (
+              <div className="flex flex-col items-center">{person}</div>
+            )}
 
             {/* The step itself — height encodes rank, numeral carved in. */}
             <div
@@ -149,54 +165,66 @@ export function LeaderboardPodium({ entries }: { entries: LeaderboardEntry[] }) 
 export function LeaderboardRow({
   entry,
   leadReputation,
+  linked = true,
 }: {
   entry: LeaderboardEntry;
   leadReputation: number;
+  linked?: boolean;
 }) {
   const share = leadReputation > 0 ? entry.reputation / leadReputation : 0;
+  const body = (
+    <>
+      <div className="flex items-center gap-3">
+        <Avatar seed={entry.handle} size="md" />
 
-  return (
-    <li>
-      <Link
-        href={`/people/${entry.handle}`}
-        className="hover:bg-accent/60 group flex flex-col gap-2 rounded-lg px-2 py-2.5 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Avatar seed={entry.handle} size="md" />
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-1.5">
-              <span className="truncate text-sm font-medium">{entry.name}</span>
-              <span className="text-muted-foreground truncate text-xs">
-                @{entry.handle}
-              </span>
-            </div>
-            <div className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
-              {entry.tags.map((tag, i) => (
-                <span key={tag} className="truncate">
-                  {i > 0 ? <span className="mr-1 opacity-40">·</span> : null}
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex shrink-0 flex-col items-end gap-0.5">
-            <span className="text-sm font-semibold tabular-nums">
-              {formatPoints(entry.reputation)}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="truncate text-sm font-medium">{entry.name}</span>
+            <span className="text-muted-foreground truncate text-xs">
+              @{entry.handle}
             </span>
-            {entry.change === undefined ? null : <Change value={entry.change} />}
+          </div>
+          <div className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
+            {entry.tags.map((tag, i) => (
+              <span key={tag} className="truncate">
+                {i > 0 ? <span className="mr-1 opacity-40">·</span> : null}
+                {tag}
+              </span>
+            ))}
           </div>
         </div>
 
-        {/* Relative standing against the leader, quiet 2px bar. */}
-        <span className="bg-brand/10 block h-0.5 overflow-hidden rounded-full">
-          <span
-            className="bg-brand/70 group-hover:bg-brand block h-full rounded-full transition-all duration-500"
-            style={{ width: `${Math.max(share * 100, 3)}%` }}
-          />
-        </span>
-      </Link>
+        <div className="flex shrink-0 flex-col items-end gap-0.5">
+          <span className="text-sm font-semibold tabular-nums">
+            {formatPoints(entry.reputation)}
+          </span>
+          {entry.change === undefined ? null : <Change value={entry.change} />}
+        </div>
+      </div>
+
+      <span className="bg-brand/10 block h-0.5 overflow-hidden rounded-full">
+        <span
+          className="bg-brand/70 group-hover:bg-brand block h-full rounded-full transition-all duration-500"
+          style={{ width: `${Math.max(share * 100, 3)}%` }}
+        />
+      </span>
+    </>
+  );
+
+  return (
+    <li>
+      {linked ? (
+        <Link
+          href={`/people/${entry.handle}`}
+          className="hover:bg-accent/60 group flex flex-col gap-2 rounded-lg px-2 py-2.5 transition-colors"
+        >
+          {body}
+        </Link>
+      ) : (
+        <div className="group flex flex-col gap-2 rounded-lg px-2 py-2.5">
+          {body}
+        </div>
+      )}
     </li>
   );
 }

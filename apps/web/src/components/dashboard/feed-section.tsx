@@ -5,22 +5,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Composer } from "./composer";
 import { FeedList } from "./feed-list";
-import { Onboarding } from "./onboarding";
-import { queryKeys } from "@/lib/queries";
+import { invalidateEntryLists } from "@/lib/cache";
 import { createPost, ApiError } from "@/lib/mutations";
-import type { FeedKind } from "./feed-item";
-import type { Block } from "@/lib/content";
+import type { ComposerDraft } from "@/lib/draft";
 
-export interface ComposerDraft {
-  kind: FeedKind;
-  title: string;
-  /** Plain text — drafts and the excerpt fallback. */
-  body: string;
-  /** Structured body; what actually gets stored. */
-  blocks?: Block[];
-  tags: string[];
-  imageUrl?: string;
-}
+export type { ComposerDraft } from "@/lib/draft";
 
 /*
  * Feed layout + data. Entries come from the React Query cache (hydrated by
@@ -54,17 +43,13 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
   async function publish(draft: ComposerDraft) {
     try {
       await createPost(draft);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.feed }),
-        queryClient.invalidateQueries({ queryKey: ["infinite"] }),
-      ]);
+      // Central helper: feed, infinite pages, saved, "for you" and the tab
+      // counts all move when a post is published.
+      await invalidateEntryLists(queryClient);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        // Don't lose their writing to the login round-trip; the composer
-        // restores this on remount. (Attached files can't be serialised.)
-        try {
-          sessionStorage.setItem("chelaa:draft", JSON.stringify(draft));
-        } catch {}
+        // Their writing is already autosaved (lib/draft.ts); the composer
+        // flags the round-trip so it reopens expanded on return.
         router.push("/login?next=%2F");
         return false;
       }
@@ -78,30 +63,30 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
       {/* Single full-height scroll layer, so the scrollbar track starts at
           the very top of the panel. */}
       <div ref={scrollRef} className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-        {/* Composer — sticky, frosted: it never leaves the screen, and feed
-            rows slide beneath it while scrolling. */}
+        {/* Composer — sticky: it never leaves the screen, and feed rows slide
+            beneath it while scrolling.
+
+            OPAQUE, not frosted. It was `bg-background/90` + backdrop-blur, and
+            cards passing underneath ghosted through as smudges. The band sits
+            on the content panel — itself `bg-background` — so an opaque fill is
+            the same colour and simply hides what passes below. It also drops a
+            full-width backdrop-filter that the compositor was re-running on
+            every scrolled frame. (Translucency in this app is for surfaces over
+            the sky backdrop, not over the content panel.) */}
         <div
           ref={bandRef}
-          className="bg-background/90 sticky top-0 z-30 flex w-full gap-4 px-3 md:gap-6 pt-4 pb-3 md:px-5 md:pt-5 backdrop-blur-md"
+          className="bg-background sticky top-0 z-30 flex w-full gap-4 px-3 md:gap-6 pt-4 pb-3 md:px-5 md:pt-5"
         >
           <div className="min-w-0 flex-1">
             <Composer onPublish={publish} />
           </div>
-          <div className="hidden w-72 shrink-0 xl:block" />
         </div>
 
         <div className="flex w-full gap-4 px-3 md:gap-6 pb-10 md:px-5">
-          <main className="min-w-0 flex-1">
-            <Onboarding />
-            <FeedList scrollRef={scrollRef} />
+          <main className="@container min-w-0 flex-1">
+            <FeedList scrollRef={scrollRef} rail={rail} />
           </main>
-          <div className="hidden w-72 shrink-0 xl:block" />
         </div>
-      </div>
-
-      {/* Rail — pinned to the panel itself, above the scroll layer. */}
-      <div className="scroll-slim absolute top-5 right-5 bottom-0 z-40 hidden w-72 overflow-y-auto pb-6 xl:block">
-        {rail}
       </div>
     </div>
   );

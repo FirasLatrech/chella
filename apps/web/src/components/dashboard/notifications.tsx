@@ -38,6 +38,11 @@ const KIND: Record<
     tint: "text-brand",
     text: "replied to your post",
   },
+  thread: {
+    icon: ReplyIcon,
+    tint: "text-brand",
+    text: "replied to your comment",
+  },
   vote: {
     icon: AltArrowUpIcon,
     tint: "text-emerald-600 dark:text-emerald-500",

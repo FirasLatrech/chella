@@ -1,0 +1,26 @@
+# Keep the build context small and never ship secrets into an image layer.
+.env
+.env.*
+!.env.example
+
+node_modules
+**/node_modules
+.next
+**/.next
+out
+**/out
+
+.git
+.github
+*.md
+!README.md
+
+apps/api/api
+apps/api/bin
+apps/api/uploads
+
+.DS_Store
+*.log
+.vercel
+.idea
+.vscode

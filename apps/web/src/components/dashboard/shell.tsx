@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "./sidebar";
+import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
 
 /*
  * App shell: the sky backdrop carries the page, the sidebar sits directly on
@@ -23,6 +24,9 @@ export function Shell({ children }: { children: ReactNode }) {
       <main className="bg-background ring-border-surface-strong flex min-w-0 flex-1 flex-col overflow-hidden ring-[0.5px] md:rounded-l-2xl">
         {children}
       </main>
+      {/* Mounted once for the whole app, so any control can open the profile
+          editor in place instead of navigating to /people/[handle]?edit=1. */}
+      <EditProfileDialog />
     </div>
   );
 }

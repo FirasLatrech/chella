@@ -13,7 +13,7 @@ import { FeedItem } from "@/components/dashboard/feed-item";
 import { ActivityGraph } from "@/components/dashboard/activity-graph";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
+import { EditProfileButton } from "@/components/profile/edit-profile-button";
 import { MediaTrigger } from "@/components/ui/media-viewer";
 import { BadgeShelf } from "@/components/profile/badge-shelf";
 import { fetchProfileStats, requireAuth } from "@/lib/api";
@@ -137,20 +137,7 @@ export default async function ProfilePage({
                     <span className="text-muted-foreground text-xs tabular-nums">
                       {formatPoints(profile.reputation)} rep
                     </span>
-                    {me.handle === profile.handle ? (
-                      <EditProfileDialog
-                        handle={profile.handle}
-                        initial={{
-                          bio: profile.bio,
-                          github: profile.github,
-                          linkedin: profile.linkedin,
-                          website: profile.website,
-                          cvUrl: profile.cvUrl,
-                          avatar: profile.avatar,
-                          emailNotifications: profile.emailNotifications,
-                        }}
-                      />
-                    ) : null}
+                    {me.handle === profile.handle ? <EditProfileButton /> : null}
                   </div>
                 </div>
               </div>

@@ -40,9 +40,14 @@ type feedItem struct {
 }
 
 type replyItem struct {
-	ID       string `json:"id"`
-	Author   string `json:"author"`
-	Time     string `json:"time"`
+	ID     string `json:"id"`
+	Author string `json:"author"`
+	Time   string `json:"time"`
+	// Absolute timestamp (RFC 3339) so the client can order by age — the
+	// relative `time` label isn't sortable, and ids aren't chronological.
+	CreatedAt string `json:"createdAt"`
+	// Set on a nested reply: the id of the top-level reply it answers.
+	ParentID string `json:"parentId,omitempty"`
 	Text     string `json:"text"`
 	Votes    int    `json:"votes"`
 	Accepted bool   `json:"accepted,omitempty"`
@@ -186,12 +191,39 @@ func (s *server) listPosts(w http.ResponseWriter, r *http.Request) {
 	case "views":
 		order = ` order by p.views + (select count(*) from post_views pv
 			where pv.post_id = p.id) desc, p.id desc`
+	case "foryou":
+		// ONE feed, personalized: posts matching the reader's interests float
+		// to the top, everything else follows in the usual newest-first order.
+		// Nothing is filtered out — interests rank the feed, they don't gate
+		// it (same rule the jobs board follows).
+		//
+		// Ranking isn't a monotonic key, so this shares the offset-cursor path
+		// below rather than the (created_at, id) keyset.
+		interests, err := s.readerInterests(r.Context(), s.meID(r))
+		if err != nil || len(interests) == 0 {
+			// No interests to rank by — plain chronological, which is exactly
+			// what the default already does.
+			break
+		}
+		lowered := make([]string, 0, len(interests))
+		for _, t := range interests {
+			lowered = append(lowered, strings.ToLower(t))
+		}
+		args = append(args, lowered)
+		order = fmt.Sprintf(` order by (
+			select count(distinct lower(t))
+			from unnest(p.tags) t where lower(t) = any($%d)
+		  ) desc, p.created_at desc, p.id desc`, len(args))
 	}
+
+	// Ranked orderings (top/views/foryou) can't use the keyset cursor — their
+	// sort key isn't monotonic, so a page boundary would skip or repeat rows.
+	keyset := sort == "" || sort == "new"
 
 	limit := clampInt(params.Get("limit"), 20, 1, 50)
 	paging := ""
 	if cursor := params.Get("cursor"); cursor != "" {
-		if sort == "" || sort == "new" {
+		if keyset {
 			// Keyset on the ordering key itself — (created_at, id) — since
 			// ids are not chronological (the seed inserts out of order).
 			args = append(args, cursor)
@@ -223,7 +255,7 @@ func (s *server) listPosts(w http.ResponseWriter, r *http.Request) {
 	next := ""
 	if len(items) > limit {
 		items = items[:limit]
-		if sort == "" || sort == "new" {
+		if keyset {
 			next = items[len(items)-1].ID
 		} else {
 			offset := clampInt(params.Get("cursor"), 0, 0, 10000)
@@ -308,7 +340,8 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 		       exists(select 1 from reply_votes v where v.reply_id = r.id and v.user_id = $2),
 		       r.edited_at is not null,
 		       r.author_id = $2,
-		       u.avatar_url
+		       u.avatar_url,
+		       r.parent_id
 		from replies r
 		join users u on u.id = r.author_id
 		where r.post_id = $1
@@ -325,19 +358,63 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 		var (
 			rep       replyItem
 			rid       int64
+			parentID  *int64
 			replyTime time.Time
 		)
 		if err := rows.Scan(&rid, &rep.Author, &replyTime, &rep.Text,
 			&rep.Votes, &rep.Accepted, &rep.MyVote, &rep.Edited, &rep.Mine,
-			&rep.Avatar); err != nil {
+			&rep.Avatar, &parentID); err != nil {
 			log.Printf("scan reply: %v", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
 			return
 		}
 		rep.ID = fmt.Sprint(rid)
 		rep.Time = relTime(replyTime)
+		rep.CreatedAt = replyTime.UTC().Format(time.RFC3339)
+		if parentID != nil {
+			rep.ParentID = fmt.Sprint(*parentID)
+		}
 		entry.Discussion = append(entry.Discussion, rep)
 	}
 
 	writeJSON(w, http.StatusOK, entry)
+}
+
+// GET /api/posts/counts — totals per kind for the feed's filter tabs.
+//
+// The tabs used to count the flat /api/posts array, which is capped at 20
+// rows, so every chip was really "how many of the first 20 are questions".
+// Counting belongs in the database: one grouped scan, correct at any size,
+// and unaffected by how far the reader has paged.
+//
+// Registered ahead of /api/posts/{id}; Go's mux prefers the literal segment.
+func (s *server) postCounts(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.db.Query(r.Context(),
+		`select kind::text, count(*) from posts group by kind`)
+	if err != nil {
+		log.Printf("post counts: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+	defer rows.Close()
+
+	// Every kind is present with a zero, so the chips render on an empty feed.
+	counts := map[string]int{"all": 0, "question": 0, "project": 0, "post": 0}
+	for rows.Next() {
+		var kind string
+		var n int
+		if err := rows.Scan(&kind, &n); err != nil {
+			log.Printf("scan post counts: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+			return
+		}
+		counts[kind] = n
+		counts["all"] += n
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf("post counts rows: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+	writeJSON(w, http.StatusOK, counts)
 }

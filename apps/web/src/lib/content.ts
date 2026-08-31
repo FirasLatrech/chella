@@ -23,6 +23,11 @@ export interface Reply {
   id: string;
   author: string;
   time: string;
+  /** Absolute RFC 3339 timestamp — `time` is a relative label and ids are
+   *  not chronological, so this is what sorting by age uses. */
+  createdAt: string;
+  /** Set on a nested reply: the top-level reply it belongs under. */
+  parentId?: string;
   text: string;
   votes: number;
   accepted?: boolean;

@@ -3,7 +3,6 @@
 import { Dialog, DialogPanel } from "@headlessui/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   MagnifierIcon,
   QuestionCircleIcon,
@@ -14,22 +13,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { formatPoints } from "@/lib/format";
-import { queryKeys } from "@/lib/keys";
-import type { FeedEntry } from "@/components/dashboard/feed-item";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4120";
-
-interface SearchResults {
-  posts: FeedEntry[];
-  people: {
-    handle: string;
-    name: string;
-    avatar?: string;
-    tags: string[];
-    reputation: number;
-  }[];
-  tags: { name: string; posts: number }[];
-}
+import { useUniversalSearch } from "@/lib/queries";
 
 const KIND_ICON = {
   question: QuestionCircleIcon,
@@ -67,18 +51,7 @@ export function SearchPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const { data } = useQuery({
-    queryKey: queryKeys.universalSearch(debounced),
-    queryFn: async (): Promise<SearchResults> => {
-      const res = await fetch(
-        `${API_URL}/api/search?q=${encodeURIComponent(debounced)}`,
-        { credentials: "include" },
-      );
-      if (!res.ok) return { posts: [], people: [], tags: [] };
-      return res.json();
-    },
-    enabled: open && debounced.length > 0,
-  });
+  const { data } = useUniversalSearch(debounced, open);
 
   // One flat list so arrow keys cross section boundaries naturally.
   const items = [
@@ -118,7 +91,7 @@ export function SearchPalette() {
     }),
     ...(data?.tags ?? []).map((t) => ({
       key: `tag-${t.name}`,
-      href: `/projects?tag=${encodeURIComponent(t.name)}`,
+      href: `/?tag=${encodeURIComponent(t.name)}`,
       section: "Tags",
       node: (
         <>

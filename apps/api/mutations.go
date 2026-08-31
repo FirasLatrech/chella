@@ -15,28 +15,41 @@ func (s *server) requireUser(w http.ResponseWriter, r *http.Request) *user {
 	return u
 }
 
+// maxPostTags bounds a post's tag list. Tags are compared with lower()/unnest
+// across the feed and the leaderboard, so both the count and each tag's length
+// are a query-cost multiplier.
+const maxPostTags = 3
+
+// normalizeTags trims, bounds, drops blanks and de-duplicates case-insensitively,
+// keeping the first occurrence's display case (tags render as typed, so "Go"
+// must survive as "Go" — it just can't coexist with "go"). Duplicates are not
+// merely untidy: the feed card keys its badges by tag name, so two equal tags
+// on one post are a React duplicate-key error.
+func normalizeTags(raw []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, t := range raw {
+		t = strings.TrimSpace(t)
+		if len([]rune(t)) > 30 {
+			t = string([]rune(t)[:30])
+		}
+		key := strings.ToLower(t)
+		if t == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, t)
+		if len(out) == maxPostTags {
+			break
+		}
+	}
+	return out
+}
+
 // POST /api/posts — create a post/question/project.
 func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 	u := s.requireUser(w, r)
 	if u == nil {
-		return
-	}
-
-	// Posting is earned by introducing yourself: at least one profile detail
-	// (bio, a link or a CV) must be filled in first. Enforced here so the
-	// composer's client-side gate can't be bypassed.
-	var hasDetails bool
-	if err := s.db.QueryRow(r.Context(), `
-		select bio <> '' or github <> '' or linkedin <> '' or website <> ''
-		    or cv_url <> '' from users where id = $1`, u.ID).
-		Scan(&hasDetails); err != nil {
-		log.Printf("profile gate: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
-		return
-	}
-	if !hasDetails {
-		writeJSON(w, http.StatusForbidden, map[string]string{
-			"error": "complete your profile (a bio, link or CV) before posting"})
 		return
 	}
 
@@ -62,21 +75,7 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title must be 1–120 characters"})
 		return
 	}
-	if in.Tags == nil {
-		in.Tags = []string{}
-	}
-	if len(in.Tags) > 3 {
-		in.Tags = in.Tags[:3]
-	}
-	// Bound each tag: they are compared with lower()/unnest across the feed
-	// and the leaderboard, so unbounded strings are a cost multiplier.
-	for i, t := range in.Tags {
-		t = strings.TrimSpace(t)
-		if len([]rune(t)) > 30 {
-			t = string([]rune(t)[:30])
-		}
-		in.Tags[i] = t
-	}
+	in.Tags = normalizeTags(in.Tags)
 
 	// Rich blocks from the editor are whitelisted server-side; a plain body
 	// still works and becomes a single paragraph.
@@ -106,7 +105,10 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]string{"id": fmt.Sprint(id)})
 }
 
-// POST /api/posts/{id}/replies — answer or comment.
+// POST /api/posts/{id}/replies — answer or comment. With `parentId` it is a
+// nested reply to a top-level reply on the same post: ONE level only, so a
+// reply to a child re-parents to the child's root, and the thread stays a
+// conversation under one answer rather than a tree.
 func (s *server) createReply(w http.ResponseWriter, r *http.Request) {
 	u := s.requireUser(w, r)
 	if u == nil {
@@ -114,7 +116,8 @@ func (s *server) createReply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var in struct {
-		Text string `json:"text"`
+		Text     string `json:"text"`
+		ParentID string `json:"parentId"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
@@ -130,19 +133,44 @@ func (s *server) createReply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
+		parentID     *int64
+		parentAuthor int64
+	)
+	if in.ParentID != "" {
+		// Resolve to the root of the thread, and require it to live on this
+		// post — a parent from another post would splice threads together.
+		var root int64
+		err := s.db.QueryRow(r.Context(), `
+			select coalesce(rp.parent_id, rp.id),
+			       (select author_id from replies where id = coalesce(rp.parent_id, rp.id))
+			from replies rp
+			where rp.id = $1 and rp.post_id = $2`,
+			in.ParentID, r.PathValue("id")).Scan(&root, &parentAuthor)
+		if err != nil {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "parent reply not found"})
+			return
+		}
+		parentID = &root
+	}
+
+	var (
 		id       int64
 		postID   int64
 		authorID int64
 	)
 	err := s.db.QueryRow(r.Context(), `
-		insert into replies (post_id, author_id, body)
-		values ($1, $2, $3) returning id, post_id`,
-		r.PathValue("id"), u.ID, in.Text).Scan(&id, &postID)
+		insert into replies (post_id, author_id, body, parent_id)
+		values ($1, $2, $3, $4) returning id, post_id`,
+		r.PathValue("id"), u.ID, in.Text, parentID).Scan(&id, &postID)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "post not found"})
 		return
 	}
-	if err := s.db.QueryRow(r.Context(),
+	if parentID != nil {
+		// A nested reply is a message to the thread's author, not the post's
+		// (which would double-notify whenever they are the same person).
+		s.notify(r.Context(), parentAuthor, u.ID, "thread", postID, &id)
+	} else if err := s.db.QueryRow(r.Context(),
 		`select author_id from posts where id = $1`, postID).Scan(&authorID); err == nil {
 		s.notify(r.Context(), authorID, u.ID, "reply", postID, &id)
 	}
@@ -261,13 +289,21 @@ func (s *server) acceptReply(w http.ResponseWriter, r *http.Request) {
 		postID   int64
 		authorID int64
 		kind     string
+		nested   bool
 	)
 	err = tx.QueryRow(r.Context(), `
-		select p.id, p.author_id, p.kind
+		select p.id, p.author_id, p.kind, rp.parent_id is not null
 		from replies rp join posts p on p.id = rp.post_id
-		where rp.id = $1`, replyID).Scan(&postID, &authorID, &kind)
+		where rp.id = $1`, replyID).Scan(&postID, &authorID, &kind, &nested)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "reply not found"})
+		return
+	}
+	if nested {
+		// Only a top-level answer can be the accepted one; a comment inside a
+		// thread is a follow-up, not an answer in its own right.
+		writeJSON(w, http.StatusBadRequest,
+			map[string]string{"error": "only top-level answers can be accepted"})
 		return
 	}
 	if authorID != u.ID {

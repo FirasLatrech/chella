@@ -55,7 +55,12 @@ export function LeaderboardBrowser() {
 
   return (
     <TabGroup selectedIndex={periodIndex} onChange={setPeriodIndex}>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      {/* The page's ONE filter row: period (server-queried) and tag. It used
+          to be doubled by a second, client-only period switcher inside the
+          list — that one is gone. Sticky and opaque, like the feed's bands, so
+          the controls stay reachable while the board scrolls and rows don't
+          ghost through the tint. */}
+      <div className="bg-background sticky top-0 z-20 -mx-3 mb-3 flex flex-wrap items-center gap-2 px-3 py-2">
         <Tabs>
           {PERIODS.map((p) => (
             <TabItem key={p.value}>{p.label}</TabItem>
@@ -77,7 +82,7 @@ export function LeaderboardBrowser() {
           No points earned in this window yet — the board is wide open.
         </p>
       ) : (
-        <LeaderboardList entries={entries} />
+        <LeaderboardList entries={entries} transitionKey={`${period}:${tag}`} />
       )}
     </TabGroup>
   );

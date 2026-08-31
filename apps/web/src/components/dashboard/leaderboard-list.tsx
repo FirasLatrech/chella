@@ -1,73 +1,68 @@
 "use client";
 
-import { TabGroup } from "@headlessui/react";
 import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useRef, useState } from "react";
-import { Tabs, TabItem } from "@/components/ui/tabs";
 import {
   LeaderboardPodium,
   LeaderboardRow,
   type LeaderboardEntry,
 } from "@/components/leaderboard";
+import { LockedRanks, VISIBLE_RANKS } from "./locked-ranks";
 
-const PERIODS = ["This week", "This month", "All time"] as const;
-
-export function LeaderboardList({ entries }: { entries: LeaderboardEntry[] }) {
-  const [period, setPeriod] = useState(0);
-  const topRef = useRef<HTMLDivElement>(null);
-
-  // No live per-period data yet — same ranking, re-sorted for "This week"
-  // by recent movement so the filter still feels meaningful.
-  const ranked = useMemo(() => {
-    if (period !== 0) return entries;
-    return [...entries]
-      .sort((a, b) => (b.change ?? 0) - (a.change ?? 0))
-      .map((e, i) => ({ ...e, rank: i + 1 }));
-  }, [entries, period]);
-
-  const podium = ranked.slice(0, 3);
-  const rest = ranked.slice(3);
-  const leadReputation = ranked[0]?.reputation ?? 0;
-
-  function onChange(next: number) {
-    setPeriod(next);
-    topRef.current
-      ?.closest(".scroll-slim")
-      ?.scrollTo({ top: 0, behavior: "smooth" });
-  }
+/*
+ * The board itself: podium, the rows below it, and the locked preview.
+ *
+ * Presentational only. This used to carry a SECOND period switcher
+ * ("This week / This month / All time") on top of the browser's real one, and
+ * it wasn't backed by anything — it re-sorted the same rows client-side and
+ * relabelled them, so the page showed two filters that disagreed. Period and
+ * tag belong to LeaderboardBrowser, which queries the server for them; this
+ * component just renders what it is handed.
+ */
+export function LeaderboardList({
+  entries,
+  /** Current board state — keys the cross-fade so switching period animates. */
+  transitionKey,
+}: {
+  entries: LeaderboardEntry[];
+  transitionKey?: string;
+}) {
+  // Only the top VISIBLE_RANKS are real: the podium plus the rows between it
+  // and the cut. Everything past that is a locked preview — see LockedRanks.
+  const podium = entries.slice(0, 3);
+  const rest = entries.slice(3, VISIBLE_RANKS);
+  const leadReputation = entries[0]?.reputation ?? 0;
+  const lastVisible = entries[Math.min(entries.length, VISIBLE_RANKS) - 1];
 
   return (
-    <TabGroup selectedIndex={period} onChange={onChange}>
-      <div ref={topRef} />
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={transitionKey}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+      >
+        {podium.length === 3 ? <LeaderboardPodium entries={podium} /> : null}
 
-      <div className="bg-background/85 sticky top-0 z-20 -mx-3 mb-1 flex items-center justify-between px-3 py-2 backdrop-blur-md">
-        <Tabs>
-          {PERIODS.map((label) => (
-            <TabItem key={label}>{label}</TabItem>
+        <ul className="flex flex-col gap-0.5">
+          {rest.map((entry) => (
+            <LeaderboardRow
+              key={entry.handle}
+              entry={entry}
+              leadReputation={leadReputation}
+            />
           ))}
-        </Tabs>
-      </div>
+        </ul>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={period}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-        >
-          {podium.length === 3 ? <LeaderboardPodium entries={podium} /> : null}
-
-          <ul className="flex flex-col gap-0.5">
-            {rest.map((entry) => (
-              <LeaderboardRow
-                key={entry.handle}
-                entry={entry}
-                leadReputation={leadReputation}
-              />
-            ))}
-          </ul>
-        </motion.div>
-      </AnimatePresence>
-    </TabGroup>
+        {/* Only gate when there is actually something behind it — on a board
+            with five or fewer people the lock would be theatre. */}
+        {entries.length > VISIBLE_RANKS ? (
+          <LockedRanks
+            lastReputation={lastVisible?.reputation ?? 0}
+            leadReputation={leadReputation}
+            total={entries.length}
+          />
+        ) : null}
+      </motion.div>
+    </AnimatePresence>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ComponentType } from "react";
 import {
@@ -11,7 +11,6 @@ import {
   UserCircleIcon,
   CloudUploadIcon,
   DocumentTextIcon,
-  PenNewSquareIcon,
   TrashBinTrashIcon,
 } from "@solar-icons/react/bold-duotone";
 import { cn } from "@/lib/utils";
@@ -19,8 +18,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabItem, TabGroup, TabPanels, TabPanel } from "@/components/ui/tabs";
 import { MediaTrigger } from "@/components/ui/media-viewer";
 import { Textarea } from "@/components/ui/input";
+import { InterestPicker } from "./interest-picker";
 import {
   ApiError,
   updateProfile,
@@ -28,8 +29,14 @@ import {
   type ProfileDetailsInput,
 } from "@/lib/mutations";
 import { queryKeys } from "@/lib/keys";
+import { useMe, useProfile } from "@/lib/queries";
+import {
+  closeEditProfile,
+  isEditProfileOpen,
+  subscribeEditProfile,
+} from "@/lib/edit-profile";
 
-/** Small caps heading that groups related fields inside the modal. */
+/** Small caps heading that groups related fields inside a section. */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
@@ -38,51 +45,101 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+const EMPTY: ProfileDetailsInput = {
+  bio: "",
+  github: "",
+  linkedin: "",
+  website: "",
+  cvUrl: "",
+  avatar: "",
+  interests: [],
+  emailNotifications: true,
+};
+
 /*
- * Profile editing lives in a modal on the profile page itself — no context
- * switch to a settings route. The CV uploads immediately on pick; everything
- * else persists on Save, then the modal closes over the refreshed profile.
+ * Profile editor — mounted ONCE in the Shell, opened from anywhere via
+ * lib/edit-profile.ts. It used to live on the profile page behind `?edit=1`,
+ * which meant editing a bio cost you your place in the feed.
+ *
+ * Because it can open on any route, it fetches its own data (useProfile)
+ * rather than taking a server-rendered `initial` prop, and re-seeds the form
+ * every time it opens so it never shows stale values.
+ *
+ * The fields are split across two tabs — Profile (who you are: photo, bio,
+ * interests) and Details (links, CV, notifications). One long scroll made the
+ * footer feel far from the field being edited.
  */
-export function EditProfileDialog({
-  handle,
-  initial,
-}: {
-  handle: string;
-  initial: ProfileDetailsInput;
-}) {
+export function EditProfileDialog() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  // ?edit=1 opens the modal directly — the onboarding checklist links here,
-  // and landing on the profile with nothing open would strand the user.
-  const searchParams = useSearchParams();
-  const [open, setOpen] = useState(() => searchParams.get("edit") === "1");
-  const [form, setForm] = useState(initial);
+
+  const open = useSyncExternalStore(
+    subscribeEditProfile,
+    isEditProfileOpen,
+    () => false,
+  );
+
+  const { data: me } = useMe();
+  const handle = me?.handle;
+  const { data: profile } = useProfile(handle);
+
+  const [form, setForm] = useState<ProfileDetailsInput>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
 
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  // Seed the form from the server profile. Keyed on the identity of the data
+  // rather than `open` alone, because the modal can be opened before the
+  // profile query resolves.
+  const seed = profile
+    ? {
+        bio: profile.bio ?? "",
+        github: profile.github ?? "",
+        linkedin: profile.linkedin ?? "",
+        website: profile.website ?? "",
+        cvUrl: profile.cvUrl ?? "",
+        avatar: profile.avatar ?? "",
+        interests: profile.interests ?? [],
+        emailNotifications: profile.emailNotifications ?? true,
+      }
+    : null;
+  const seedKey = seed ? JSON.stringify(seed) : "";
+  const seededRef = useRef("");
+
+  useEffect(() => {
+    if (!open) {
+      seededRef.current = "";
+      return;
+    }
+    // Re-seed once per open, and again if the profile arrives late.
+    if (seed && seededRef.current !== seedKey) {
+      seededRef.current = seedKey;
+      setForm(seed);
+      setError("");
+    }
+    // `seed` is derived from seedKey; comparing the key avoids a new-object loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, seedKey]);
+
+  const dirty = seed ? JSON.stringify(form) !== seedKey : false;
 
   const set = (key: TextKey) => (value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
   };
 
-  function openDialog() {
-    // Re-seed from the latest server data every time the modal opens.
-    setForm(initial);
-    setError("");
-    setOpen(true);
+  function close() {
+    closeEditProfile();
+    setTab(0);
   }
 
-  function closeDialog() {
-    setOpen(false);
-    // Drop ?edit=1 so a refresh (or Back) doesn't reopen the modal.
-    if (searchParams.get("edit")) {
-      router.replace(`/people/${handle}`, { scroll: false });
-    }
+  /** 401 on any write means the session died mid-edit. */
+  function bounceToLogin() {
+    close();
+    router.push("/login");
   }
 
   async function pickCv(file: File | undefined) {
@@ -90,13 +147,9 @@ export function EditProfileDialog({
     setError("");
     setUploading(true);
     try {
-      const url = await uploadFile(file);
-      set("cvUrl")(url);
+      set("cvUrl")(await uploadFile(file));
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        router.push(`/login?next=/people/${handle}`);
-        return;
-      }
+      if (e instanceof ApiError && e.status === 401) return bounceToLogin();
       setError(e instanceof ApiError ? e.message : "Upload failed — try again.");
     } finally {
       setUploading(false);
@@ -111,10 +164,7 @@ export function EditProfileDialog({
     try {
       set("avatar")(await uploadFile(file));
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        router.push(`/login?next=/people/${handle}`);
-        return;
-      }
+      if (e instanceof ApiError && e.status === 401) return bounceToLogin();
       setError(e instanceof ApiError ? e.message : "Upload failed — try again.");
     } finally {
       setAvatarUploading(false);
@@ -127,23 +177,23 @@ export function EditProfileDialog({
     setSaving(true);
     try {
       await updateProfile(form);
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile(handle) });
-      setOpen(false);
-      // Server-rendered profile page picks up the new details behind the
-      // closing modal — the updated card is the confirmation.
+      // The editor opens over any route, so refresh every view the profile
+      // feeds — the header chip, the suggestions strip, the profile page.
+      if (handle) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.profile(handle) });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.forYou });
+      close();
       router.refresh();
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        router.push(`/login?next=/people/${handle}`);
-        return;
-      }
+      if (e instanceof ApiError && e.status === 401) return bounceToLogin();
       setError(e instanceof ApiError ? e.message : "Save failed — try again.");
     } finally {
       setSaving(false);
     }
   }
 
-  // Text fields only — emailNotifications is a boolean and has its own control.
+  // Text fields only — interests and emailNotifications have their own controls.
   type TextKey = "bio" | "github" | "linkedin" | "website" | "cvUrl" | "avatar";
 
   /*
@@ -179,221 +229,243 @@ export function EditProfileDialog({
     </label>
   );
 
+  // Nothing to edit until we know who the user is.
+  if (!handle) return null;
+
   return (
-    <>
-      <button
-        type="button"
-        onClick={openDialog}
-        className="bg-secondary text-secondary-foreground hover:bg-secondary/80 mt-1 flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
-      >
-        <PenNewSquareIcon size={13} className="text-muted-foreground" />
-        Edit profile
-      </button>
+    <Dialog
+      open={open}
+      onClose={close}
+      className="bg-muted/70 flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col gap-0 rounded-2xl p-1.5 shadow-xl shadow-black/10"
+    >
+      <header className="flex shrink-0 items-start gap-2 px-2.5 pt-2 pb-2.5">
+        <div className="min-w-0 flex-1">
+          <DialogTitle className="text-sm font-semibold tracking-tight">
+            Edit profile
+          </DialogTitle>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            This is how you show up across Chela.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={close}
+          className="text-muted-foreground hover:text-foreground hover:bg-foreground/5 -mt-0.5 grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg transition-colors"
+        >
+          <CloseCircleIcon size={17} />
+        </button>
+      </header>
 
-      {/* Frame-inside-tint, same relationship as the notifications panel and
-          Card: tinted shell, inset scrolling body, footer on the tint. */}
-      <Dialog
-        open={open}
-        onClose={closeDialog}
-        className="bg-muted/70 flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col gap-0 rounded-2xl p-1.5 shadow-xl shadow-black/10"
-      >
-        <header className="flex shrink-0 items-start gap-2 px-2.5 pt-2 pb-2.5">
-          <div className="min-w-0 flex-1">
-            <DialogTitle className="text-sm font-semibold tracking-tight">
-              Edit profile
-            </DialogTitle>
-            <p className="text-muted-foreground mt-0.5 text-xs">
-              This is how you show up across Chela.
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={closeDialog}
-            className="text-muted-foreground hover:text-foreground hover:bg-foreground/5 -mt-0.5 grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg transition-colors"
-          >
-            <CloseCircleIcon size={17} />
-          </button>
-        </header>
-
-        {/* Inset panel — the fields scroll inside it, the footer never moves. */}
-        <div className="bg-popover ring-border-surface-strong scroll-slim min-h-0 flex-1 overflow-y-auto rounded-xl p-5 shadow-sm shadow-black/5 ring-[0.5px]">
-          <div className="flex flex-col gap-6">
-            {/* Avatar — uploads immediately, like the CV. Without one the
-                generated sky crop stands in, so this is never required. */}
-            <div className="flex items-center gap-3.5">
-              <Avatar
-                seed={handle}
-                src={form.avatar || undefined}
-                size="xl"
-                className="size-16"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={avatarUploading}
-                    onClick={() => avatarRef.current?.click()}
-                  >
-                    <CloudUploadIcon size={15} />
-                    {avatarUploading
-                      ? "Uploading…"
-                      : form.avatar
-                        ? "Change photo"
-                        : "Upload photo"}
-                  </Button>
-                  {form.avatar ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => set("avatar")("")}
-                    >
-                      Remove
-                    </Button>
-                  ) : null}
-                </div>
-                <p className="text-muted-foreground mt-1 text-[11px]">
-                  PNG, JPEG, WebP or GIF, up to 5 MB.
-                </p>
-              </div>
-              <input
-                ref={avatarRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={(e) => pickAvatar(e.target.files?.[0])}
-              />
-            </div>
-
-            <section className="flex flex-col gap-3">
-              <SectionLabel>About you</SectionLabel>
-              <label className="block">
-              <Textarea
-                value={form.bio}
-                onChange={(e) => set("bio")(e.target.value)}
-                placeholder="Backend engineer in Tunis. Go, Postgres, and too many side projects."
-                rows={3}
-                maxLength={500}
-              />
-              <span className="text-muted-foreground/70 mt-1 block text-right text-[11px] tabular-nums">
-                {form.bio.length}/500
-              </span>
-              </label>
-            </section>
-
-            <section className="flex flex-col gap-3">
-              <SectionLabel>Links</SectionLabel>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {field("GitHub", "github", "github.com/you", CodeSquareIcon)}
-                {field(
-                  "LinkedIn",
-                  "linkedin",
-                  "linkedin.com/in/you",
-                  UserCircleIcon,
-                )}
-              </div>
-              {field("Website", "website", "you.tn", GlobalIcon)}
-            </section>
-
-            {/* CV — a PDF stored on our own uploader. */}
-            <section className="flex flex-col gap-3">
-              <SectionLabel>CV</SectionLabel>
-              <div>
-              {form.cvUrl ? (
-                <div className="bg-muted/60 ring-border-surface-strong flex items-center gap-2 rounded-xl px-3 py-2 ring-[0.5px]">
-                  <DocumentTextIcon
-                    size={16}
-                    className="text-brand-content shrink-0"
-                  />
-                  <MediaTrigger
-                    src={form.cvUrl}
-                    label="View CV"
-                    className="text-brand-content min-w-0 flex-1 truncate text-left text-sm font-medium hover:underline"
-                  >
-                    View uploaded CV
-                  </MediaTrigger>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    aria-label="Remove CV"
-                    onClick={() => set("cvUrl")("")}
-                  >
-                    <TrashBinTrashIcon size={15} />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={uploading}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <CloudUploadIcon size={15} />
-                  {uploading ? "Uploading…" : "Upload CV"}
-                </Button>
-              )}
-              {!form.cvUrl ? (
-                <p className="text-muted-foreground mt-1.5 text-[11px]">
-                  PDF, up to 5 MB.
-                </p>
-              ) : null}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={(e) => pickCv(e.target.files?.[0])}
-              />
-              </div>
-            </section>
-
-            {/* Email notifications — on by default; this is the opt-out. */}
-            <section className="border-border-surface flex flex-col gap-3 border-t-[0.5px] pt-5">
-              <SectionLabel>Notifications</SectionLabel>
-              <div className="bg-muted/50 ring-border-surface flex items-center gap-3 rounded-xl px-3 py-2.5 ring-[0.5px]">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-medium">
-                    Email me about activity
-                  </span>
-                  <span className="text-muted-foreground block text-[11px]">
-                    Replies, upvotes and accepted answers.
-                  </span>
-                </span>
-                <Switch
-                  aria-label="Email me about activity"
-                  checked={form.emailNotifications !== false}
-                  onChange={(checked) =>
-                    setForm((f) => ({ ...f, emailNotifications: checked }))
-                  }
-                />
-              </div>
-            </section>
-          </div>
+      <TabGroup selectedIndex={tab} onChange={setTab}>
+        {/* The switcher sits on the tint, above the inset — so it stays put
+            while the fields scroll under it. */}
+        <div className="px-2.5 pb-2">
+          <Tabs className="w-full">
+            <TabItem className="flex-1 justify-center">Profile</TabItem>
+            <TabItem className="flex-1 justify-center">Details</TabItem>
+          </Tabs>
         </div>
 
-        {/* Footer sits on the tint, outside the inset — same as the
-            notifications panel's "See all" row. */}
-        <footer className="flex shrink-0 items-center gap-3 px-2.5 pt-2.5 pb-1">
-          <span className="text-destructive min-w-0 flex-1 truncate text-xs">
-            {error}
-          </span>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={closeDialog}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={saving || uploading || avatarUploading || !dirty}
-              onClick={save}
-            >
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
-          </div>
-        </footer>
-      </Dialog>
-    </>
+        {/* Inset panel — fields scroll inside it, header/footer never move. */}
+        <div className="bg-popover ring-border-surface-strong scroll-slim min-h-0 flex-1 overflow-y-auto rounded-xl p-5 shadow-sm shadow-black/5 ring-[0.5px]">
+          <TabPanels>
+            {/* ── Who you are ─────────────────────────────────────────── */}
+            <TabPanel className="flex flex-col gap-6 outline-none">
+              {/* Avatar — uploads immediately, like the CV. Without one the
+                  generated sky crop stands in, so this is never required. */}
+              <div className="flex items-center gap-3.5">
+                <Avatar
+                  seed={handle}
+                  src={form.avatar || undefined}
+                  size="xl"
+                  className="size-16"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={avatarUploading}
+                      onClick={() => avatarRef.current?.click()}
+                    >
+                      <CloudUploadIcon size={15} />
+                      {avatarUploading
+                        ? "Uploading…"
+                        : form.avatar
+                          ? "Change photo"
+                          : "Upload photo"}
+                    </Button>
+                    {form.avatar ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => set("avatar")("")}
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-[11px]">
+                    PNG, JPEG, WebP or GIF, up to 5 MB.
+                  </p>
+                </div>
+                <input
+                  ref={avatarRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => pickAvatar(e.target.files?.[0])}
+                />
+              </div>
+
+              <section className="flex flex-col gap-3">
+                <SectionLabel>About you</SectionLabel>
+                <label className="block">
+                  <Textarea
+                    value={form.bio}
+                    onChange={(e) => set("bio")(e.target.value)}
+                    placeholder="Backend engineer in Tunis. Go, Postgres, and too many side projects."
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <span className="text-muted-foreground/70 mt-1 block text-right text-[11px] tabular-nums">
+                    {form.bio.length}/500
+                  </span>
+                </label>
+              </section>
+
+              {/* Interests — what "For you" matches suggestions against. */}
+              <section className="flex flex-col gap-3">
+                <SectionLabel>Interests</SectionLabel>
+                <p className="text-muted-foreground -mt-1 text-[11px]">
+                  Topics you want to see. These drive the “For you” suggestions
+                  on your feed.
+                </p>
+                <InterestPicker
+                  value={form.interests}
+                  onChange={(interests) =>
+                    setForm((f) => ({ ...f, interests }))
+                  }
+                />
+              </section>
+            </TabPanel>
+
+            {/* ── Links, CV and preferences ───────────────────────────── */}
+            <TabPanel className="flex flex-col gap-6 outline-none">
+              <section className="flex flex-col gap-3">
+                <SectionLabel>Links</SectionLabel>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {field("GitHub", "github", "github.com/you", CodeSquareIcon)}
+                  {field(
+                    "LinkedIn",
+                    "linkedin",
+                    "linkedin.com/in/you",
+                    UserCircleIcon,
+                  )}
+                </div>
+                {field("Website", "website", "you.tn", GlobalIcon)}
+              </section>
+
+              {/* CV — a PDF stored on our own uploader. */}
+              <section className="flex flex-col gap-3">
+                <SectionLabel>CV</SectionLabel>
+                <div>
+                  {form.cvUrl ? (
+                    <div className="bg-muted/60 ring-border-surface-strong flex items-center gap-2 rounded-xl px-3 py-2 ring-[0.5px]">
+                      <DocumentTextIcon
+                        size={16}
+                        className="text-brand-content shrink-0"
+                      />
+                      <MediaTrigger
+                        src={form.cvUrl}
+                        label="View CV"
+                        className="text-brand-content min-w-0 flex-1 truncate text-left text-sm font-medium hover:underline"
+                      >
+                        View uploaded CV
+                      </MediaTrigger>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        aria-label="Remove CV"
+                        onClick={() => set("cvUrl")("")}
+                      >
+                        <TrashBinTrashIcon size={15} />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={uploading}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <CloudUploadIcon size={15} />
+                      {uploading ? "Uploading…" : "Upload CV"}
+                    </Button>
+                  )}
+                  {!form.cvUrl ? (
+                    <p className="text-muted-foreground mt-1.5 text-[11px]">
+                      PDF, up to 5 MB.
+                    </p>
+                  ) : null}
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => pickCv(e.target.files?.[0])}
+                  />
+                </div>
+              </section>
+
+              {/* Email notifications — on by default; this is the opt-out. */}
+              <section className="flex flex-col gap-3">
+                <SectionLabel>Notifications</SectionLabel>
+                <div className="bg-muted/50 ring-border-surface flex items-center gap-3 rounded-xl px-3 py-2.5 ring-[0.5px]">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-medium">
+                      Email me about activity
+                    </span>
+                    <span className="text-muted-foreground block text-[11px]">
+                      Replies, upvotes and accepted answers.
+                    </span>
+                  </span>
+                  <Switch
+                    aria-label="Email me about activity"
+                    checked={form.emailNotifications !== false}
+                    onChange={(checked) =>
+                      setForm((f) => ({ ...f, emailNotifications: checked }))
+                    }
+                  />
+                </div>
+              </section>
+            </TabPanel>
+          </TabPanels>
+        </div>
+      </TabGroup>
+
+      {/* Footer sits on the tint, outside the inset — so it never scrolls
+          away from the fields being edited. */}
+      <footer className="flex shrink-0 items-center gap-3 px-2.5 pt-2.5 pb-1">
+        <span className="text-destructive min-w-0 flex-1 truncate text-xs">
+          {error}
+        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={saving || uploading || avatarUploading || !dirty}
+            onClick={save}
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
+      </footer>
+    </Dialog>
   );
 }

@@ -28,8 +28,8 @@ export function PageHeader({
         <HistoryNav />
       </div>
       <h1 className="truncate text-sm font-medium">{title}</h1>
-      {children}
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        {children}
         <SearchPalette />
         <XpChip />
         <div className="hidden sm:block">

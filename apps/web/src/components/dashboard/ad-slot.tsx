@@ -16,7 +16,7 @@ export interface AdSlide {
 
 const SLIDES: AdSlide[] = [
   { id: "1", title: "Hire Tunisian engineers", sponsor: "Chelaa Jobs", href: "/jobs" },
-  { id: "2", title: "Ship your side project", sponsor: "Chelaa Projects", href: "/projects" },
+  { id: "2", title: "Ship your side project", sponsor: "Chelaa Projects", href: "/" },
   { id: "3", title: "Climb the leaderboard", sponsor: "Chelaa", href: "/leaderboard" },
 ];
 

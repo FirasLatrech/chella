@@ -1,28 +1,10 @@
 import type { FeedEntry } from "@/components/dashboard/feed-item";
-import type { QuestionEntry } from "@/components/questions/question-row";
 
 /*
  * Pure derivations over feed data. Shared by server pages and client
  * components (React Query consumers), so this module must stay free of
  * server-only imports.
  */
-
-export function questionsFromFeed(entries: FeedEntry[]): QuestionEntry[] {
-  return entries
-    .filter((e) => e.kind === "question")
-    .map((e) => ({
-      id: e.id,
-      title: e.title,
-      excerpt: e.excerpt,
-      author: e.author,
-      time: e.time,
-      tags: e.tags,
-      votes: e.votes,
-      views: e.views,
-      solved: e.solved,
-      answers: e.replies,
-    }));
-}
 
 export interface ProfileLink {
   platform: "GitHub" | "Website" | "LinkedIn" | "CV";

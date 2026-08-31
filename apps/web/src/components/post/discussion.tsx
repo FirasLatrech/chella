@@ -3,16 +3,18 @@
 import {
   CheckCircleIcon,
   AltArrowUpIcon,
+  ReplyIcon,
 } from "@solar-icons/react/bold-duotone";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { RichEditor } from "@/components/ui/rich-editor";
+import { Tabs, TabItem, TabGroup } from "@/components/ui/tabs";
 import { OwnerMenu } from "./owner-menu";
 import { invalidateEntryLists } from "@/lib/cache";
 import { playBounceSound, useInteractionSound } from "@/lib/sound";
@@ -27,10 +29,32 @@ import {
 import { useEntry, useMe, queryKeys } from "@/lib/queries";
 import type { ContentEntry, Reply } from "@/lib/content";
 
+type ReplySort = "top" | "new" | "old";
+const SORTS: { key: ReplySort; label: string }[] = [
+  { key: "top", label: "Top" },
+  { key: "new", label: "Newest" },
+  { key: "old", label: "Oldest" },
+];
+
+const byAge = (a: Reply, b: Reply) =>
+  a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
+
+interface Thread {
+  root: Reply;
+  children: Reply[];
+}
+
 /*
  * Answers (questions) or comments (posts/projects), fully API-backed via the
  * React Query entry cache. The question's author sees an Accept action on
  * unaccepted answers — the +20 moment.
+ *
+ * Threading is ONE level: a top-level reply can carry a conversation under
+ * it, and that is as deep as it goes (the API re-parents anything deeper to
+ * the root). Roots sort by Top / Newest / Oldest — the accepted answer stays
+ * pinned first regardless — while the replies inside a thread always read in
+ * conversation order, oldest first. Sorting happens here, not on the server:
+ * a post's discussion is fetched whole, so there is nothing to page.
  */
 export function Discussion({ postId }: { postId: string }) {
   const router = useRouter();
@@ -40,11 +64,48 @@ export function Discussion({ postId }: { postId: string }) {
 
   const [draft, setDraft] = useState("");
   const [editorKey, setEditorKey] = useState(0);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
 
   const kind = entry?.kind ?? "post";
-  const replies = entry?.discussion ?? [];
+  const replies = entry?.discussion;
+  // Questions default to Top — the best answer should lead — while comment
+  // threads read as a conversation, oldest first.
+  const [sort, setSort] = useState<ReplySort>(
+    kind === "question" ? "top" : "old",
+  );
   const canAccept =
     kind === "question" && !!me && me.handle === entry?.author;
+
+  const threads = useMemo<Thread[]>(() => {
+    const all = replies ?? [];
+    const roots = all.filter((r) => !r.parentId);
+    const childrenOf = new Map<string, Reply[]>();
+    for (const r of all) {
+      if (!r.parentId) continue;
+      const list = childrenOf.get(r.parentId) ?? [];
+      list.push(r);
+      childrenOf.set(r.parentId, list);
+    }
+    const compare = (a: Reply, b: Reply) => {
+      // Accepted first, always — the sort chooses the order of the rest.
+      if (!!a.accepted !== !!b.accepted) return a.accepted ? -1 : 1;
+      switch (sort) {
+        case "top":
+          return b.votes - a.votes || byAge(a, b);
+        case "new":
+          return byAge(b, a);
+        default:
+          return byAge(a, b);
+      }
+    };
+    return roots
+      .slice()
+      .sort(compare)
+      .map((root) => ({
+        root,
+        children: (childrenOf.get(root.id) ?? []).slice().sort(byAge),
+      }));
+  }, [replies, sort]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.entry(postId) });
@@ -70,6 +131,17 @@ export function Discussion({ postId }: { postId: string }) {
     onError: handle401,
   });
 
+  const threadMutation = useMutation({
+    mutationFn: ({ parentId, text }: { parentId: string; text: string }) =>
+      createReply(postId, text, parentId),
+    onSuccess: () => {
+      playBounceSound();
+      setReplyingTo(null);
+      invalidate();
+    },
+    onError: handle401,
+  });
+
   const acceptMutation = useMutation({
     mutationFn: (replyId: string) => acceptReply(replyId),
     onSuccess: invalidate,
@@ -77,32 +149,78 @@ export function Discussion({ postId }: { postId: string }) {
   });
 
   const noun = kind === "question" ? "answer" : "comment";
+  const count = threads.length;
   const heading =
-    replies.length === 0
+    count === 0
       ? kind === "question"
         ? "No answers yet — be the first"
         : "No comments yet"
-      : `${replies.length} ${noun}${replies.length === 1 ? "" : "s"}`;
+      : `${count} ${noun}${count === 1 ? "" : "s"}`;
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 text-base font-semibold tracking-tight">{heading}</h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold tracking-tight">{heading}</h2>
+        {count > 1 ? (
+          <TabGroup
+            selectedIndex={SORTS.findIndex((s) => s.key === sort)}
+            onChange={(i) => setSort(SORTS[i].key)}
+          >
+            <Tabs>
+              {SORTS.map((s) => (
+                <TabItem key={s.key}>{s.label}</TabItem>
+              ))}
+            </Tabs>
+          </TabGroup>
+        ) : null}
+      </div>
 
       <div className="flex flex-col gap-3">
         <AnimatePresence initial={false}>
-          {replies.map((reply) => (
+          {threads.map(({ root, children }) => (
             <motion.div
-              key={reply.id}
+              key={root.id}
+              layout="position"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
             >
               <ReplyCard
-                reply={reply}
+                reply={root}
                 postId={postId}
-                canAccept={canAccept && !reply.accepted}
-                onAccept={() => acceptMutation.mutate(reply.id)}
+                canAccept={canAccept && !root.accepted}
+                onAccept={() => acceptMutation.mutate(root.id)}
+                onReply={() => setReplyingTo(root.id)}
               />
+
+              {children.length > 0 || replyingTo === root.id ? (
+                // The thread hangs off its root on a hairline — indented
+                // enough to read as "inside", not so much that it looks like a
+                // second column.
+                <div className="border-border-surface-strong mt-2 ml-5 flex flex-col gap-2 border-l pl-3 md:ml-7 md:pl-4">
+                  {children.map((child) => (
+                    <ReplyCard
+                      key={child.id}
+                      reply={child}
+                      postId={postId}
+                      nested
+                      canAccept={false}
+                      onAccept={() => {}}
+                      onReply={() => setReplyingTo(root.id)}
+                    />
+                  ))}
+                  {replyingTo === root.id ? (
+                    <ThreadComposer
+                      to={root.author}
+                      pending={threadMutation.isPending}
+                      onCancel={() => setReplyingTo(null)}
+                      onSubmit={(text) =>
+                        threadMutation.mutate({ parentId: root.id, text })
+                      }
+                    />
+                  ) : null}
+                </div>
+              ) : null}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -143,16 +261,79 @@ export function Discussion({ postId }: { postId: string }) {
   );
 }
 
+/*
+ * Inline composer for a thread — plain text like every reply, opens in place
+ * under the root it answers. ⌘/Ctrl+Enter sends, Escape closes.
+ */
+function ThreadComposer({
+  to,
+  pending,
+  onCancel,
+  onSubmit,
+}: {
+  to: string;
+  pending: boolean;
+  onCancel: () => void;
+  onSubmit: (text: string) => void;
+}) {
+  const [text, setText] = useState("");
+  const valid = text.trim().length > 0;
+  const send = () => {
+    if (valid && !pending) onSubmit(text.trim());
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.15 }}
+      className="bg-surface-primary ring-border-surface-strong rounded-xl p-2 ring-[0.5px]"
+    >
+      <Textarea
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onCancel();
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
+        }}
+        rows={2}
+        className="min-h-16"
+        placeholder={`Reply to @${to}…`}
+      />
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          variant="brand"
+          size="sm"
+          disabled={!valid || pending}
+          onClick={send}
+        >
+          {pending ? "…" : "Reply"}
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
 function ReplyCard({
   reply,
   postId,
   canAccept,
   onAccept,
+  onReply,
+  nested = false,
 }: {
   reply: Reply;
   postId: string;
   canAccept: boolean;
   onAccept: () => void;
+  /** Opens the thread composer under this card's root. */
+  onReply: () => void;
+  /** Rendered inside a thread — a touch more compact than a root. */
+  nested?: boolean;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -187,7 +368,8 @@ function ReplyCard({
   return (
     <article
       className={cn(
-        "rounded-xl p-4",
+        "rounded-xl",
+        nested ? "p-3" : "p-4",
         reply.accepted
           ? "bg-emerald-500/5 ring-[0.5px] ring-emerald-500/30"
           : "bg-surface-primary ring-border-surface-strong ring-[0.5px]",
@@ -220,6 +402,17 @@ function ReplyCard({
             </button>
           ) : null}
           <ReplyVote reply={reply} postId={postId} />
+          <button
+            onClick={onReply}
+            aria-label={`Reply to @${reply.author}`}
+            className={cn(
+              "flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors",
+              "text-muted-foreground hover:text-foreground hover:bg-foreground/5",
+            )}
+          >
+            <ReplyIcon size={13} />
+            Reply
+          </button>
           {reply.mine ? (
             <OwnerMenu
               what="reply"

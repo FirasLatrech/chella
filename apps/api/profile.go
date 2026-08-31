@@ -20,8 +20,37 @@ type profileInput struct {
 	Website  string `json:"website"`
 	CvURL    string `json:"cvUrl"`
 	Avatar   string `json:"avatar"`
+	/* Declared topic interests, driving the "For you" suggestions. */
+	Interests []string `json:"interests"`
 	/* Pointer so an omitted field leaves the setting untouched. */
 	EmailNotifications *bool `json:"emailNotifications,omitempty"`
+}
+
+// maxInterests caps the picker. Interests rank suggestions; past a handful
+// they stop discriminating and every post "matches".
+const maxInterests = 10
+
+// normalizeInterests lowercases, trims, drops blanks and de-duplicates. Tags
+// group case-insensitively everywhere else, so "Go" and "go" must collapse to
+// one interest here too.
+func normalizeInterests(raw []string) ([]string, bool) {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, t := range raw {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t == "" || seen[t] {
+			continue
+		}
+		if len(t) > 40 {
+			return nil, false
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	if len(out) > maxInterests {
+		return nil, false
+	}
+	return out, true
 }
 
 // normalizeLink cleans a user-pasted link: trims, prepends https:// when the
@@ -108,13 +137,21 @@ func (s *server) updateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	interests, ok := normalizeInterests(in.Interests)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "pick up to 10 interests, each 40 characters or less"})
+		return
+	}
+
 	_, err := s.db.Exec(r.Context(), `
 		update users set bio = $1, github = $2, linkedin = $3, website = $4,
 		  cv_url = $5, avatar_url = $6,
-		  email_notifications = coalesce($7, email_notifications)
-		where id = $8`,
+		  email_notifications = coalesce($7, email_notifications),
+		  interests = $8
+		where id = $9`,
 		in.Bio, github, linkedin, website, in.CvURL, in.Avatar,
-		in.EmailNotifications, u.ID)
+		in.EmailNotifications, interests, u.ID)
 	if err != nil {
 		log.Printf("update profile: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
@@ -123,6 +160,7 @@ func (s *server) updateProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profileInput{
 		Bio: in.Bio, Github: github, Linkedin: linkedin,
 		Website: website, CvURL: in.CvURL, Avatar: in.Avatar,
+		Interests:          interests,
 		EmailNotifications: in.EmailNotifications,
 	})
 }

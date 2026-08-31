@@ -1,4 +1,4 @@
-.PHONY: db db-down api web install
+.PHONY: db db-down api web install seed-load seed-load-undo
 
 install:
 	pnpm install
@@ -15,3 +15,10 @@ api:
 
 web:
 	pnpm --filter web dev
+
+# Load-test data (TEST ONLY) — 1000 synthetic posts at id >= 100000.
+seed-load:
+	docker exec -i chelaa-postgres psql -U chelaa -d chelaa -v ON_ERROR_STOP=1 < scripts/seed-load-test.sql
+
+seed-load-undo:
+	docker exec -i chelaa-postgres psql -U chelaa -d chelaa -v ON_ERROR_STOP=1 < scripts/seed-load-test-undo.sql

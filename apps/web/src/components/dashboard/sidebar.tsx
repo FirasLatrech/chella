@@ -5,8 +5,6 @@ import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import {
   HomeSmileIcon,
-  QuestionCircleIcon,
-  FolderWithFilesIcon,
   CaseMinimalisticIcon,
   RankingIcon,
   BookmarkIcon,
@@ -18,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { useInteractionSound } from "@/lib/sound";
 import { AdSlot } from "./ad-slot";
-import { useFeed } from "@/lib/queries";
 
 interface NavItem {
   href: string;
@@ -31,8 +28,6 @@ interface NavItem {
 // real listings exist.
 const BROWSE: NavItem[] = [
   { href: "/", label: "Feed", icon: HomeSmileIcon },
-  { href: "/questions", label: "Questions", icon: QuestionCircleIcon },
-  { href: "/projects", label: "Projects", icon: FolderWithFilesIcon },
   { href: "/jobs", label: "Jobs", icon: CaseMinimalisticIcon },
 ];
 
@@ -159,14 +154,7 @@ export function Sidebar({
   const isDrawer = variant === "drawer";
   const collapsed = isDrawer ? false : collapsedState;
 
-  // Live counts from the feed cache (hydrated on the feed page, fetched once
-  // elsewhere and shared for a minute).
-  const { data: feed } = useFeed();
-  const browse = BROWSE.map((item) =>
-    item.href === "/questions" && feed
-      ? { ...item, badge: String(feed.filter((e) => e.kind === "question").length) }
-      : item,
-  );
+  const browse = BROWSE;
 
   return (
     <aside

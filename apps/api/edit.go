@@ -43,21 +43,7 @@ func (s *server) updatePost(w http.ResponseWriter, r *http.Request) {
 			map[string]string{"error": "title must be 1–120 characters"})
 		return
 	}
-	if in.Tags == nil {
-		in.Tags = []string{}
-	}
-	if len(in.Tags) > 3 {
-		in.Tags = in.Tags[:3]
-	}
-	// Bound each tag: they are compared with lower()/unnest across the feed
-	// and the leaderboard, so unbounded strings are a cost multiplier.
-	for i, t := range in.Tags {
-		t = strings.TrimSpace(t)
-		if len([]rune(t)) > 30 {
-			t = string([]rune(t)[:30])
-		}
-		in.Tags[i] = t
-	}
+	in.Tags = normalizeTags(in.Tags)
 
 	blocks, bodyText := buildBlocks(in.Blocks, in.Body)
 	excerpt := excerptFrom(bodyText, in.Title)

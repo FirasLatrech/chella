@@ -16,6 +16,9 @@ import { queryKeys } from "@/lib/keys";
 
 type InfiniteFeed = { pages: PostPage[]; pageParams: unknown[] };
 
+/** "For you" wraps its rows alongside the interests they matched. */
+type ForYouCache = { interests: string[]; items: FeedEntry[] };
+
 /** Applies `change` to the entry with `id` everywhere it is cached. */
 export function patchEntryEverywhere(
   queryClient: QueryClient,
@@ -28,6 +31,13 @@ export function patchEntryEverywhere(
   // Flat lists.
   queryClient.setQueryData<FeedEntry[]>(queryKeys.feed, patchList);
   queryClient.setQueryData<FeedEntry[]>(queryKeys.saved, patchList);
+
+  // "For you" — a third shape ({interests, items}); patching the flat and
+  // paged lists alone would let a vote cast on a suggestion card revert.
+  queryClient.setQueryData<ForYouCache>(
+    queryKeys.forYou,
+    (data) => data && { ...data, items: patchList(data.items) ?? data.items },
+  );
 
   // Paged lists.
   queryClient.setQueriesData<InfiniteFeed>(
@@ -65,6 +75,9 @@ export function invalidateEntryLists(queryClient: QueryClient, id?: string) {
   queryClient.invalidateQueries({ queryKey: queryKeys.feed });
   queryClient.invalidateQueries({ queryKey: ["infinite"] });
   queryClient.invalidateQueries({ queryKey: queryKeys.saved });
+  queryClient.invalidateQueries({ queryKey: queryKeys.forYou });
+  // Creating or deleting a post moves the tab totals.
+  queryClient.invalidateQueries({ queryKey: queryKeys.feedCounts });
   if (id) queryClient.invalidateQueries({ queryKey: queryKeys.entry(id) });
 }
 
@@ -74,6 +87,10 @@ export function removeEntryEverywhere(queryClient: QueryClient, id: string) {
 
   queryClient.setQueryData<FeedEntry[]>(queryKeys.feed, drop);
   queryClient.setQueryData<FeedEntry[]>(queryKeys.saved, drop);
+  queryClient.setQueryData<ForYouCache>(
+    queryKeys.forYou,
+    (data) => data && { ...data, items: drop(data.items) ?? data.items },
+  );
   queryClient.setQueriesData<InfiniteFeed>(
     { queryKey: ["infinite"] },
     (data) =>

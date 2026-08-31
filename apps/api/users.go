@@ -36,13 +36,15 @@ type profile struct {
 	CvURL              string        `json:"cvUrl"`
 	Avatar             string        `json:"avatar"`
 	EmailNotifications bool          `json:"emailNotifications"`
-	Badges             []badge       `json:"badges"`
+	/* Declared interests — seeds the picker and drives "For you". */
+	Interests []string `json:"interests"`
+	Badges    []badge  `json:"badges"`
 }
 
 const profileCountsQuery = `
 	select u.id, u.handle, u.name, u.created_at,
 	  u.bio, u.github, u.linkedin, u.website, u.cv_url, u.avatar_url,
-	  u.email_notifications,
+	  u.email_notifications, u.interests,
 	  (select count(*) from posts p where p.author_id = u.id),
 	  (select count(*) from replies r where r.author_id = u.id),
 	  (select count(*) from replies r where r.author_id = u.id and r.accepted)
@@ -58,13 +60,16 @@ func (s *server) getProfile(w http.ResponseWriter, r *http.Request) {
 	err := s.db.QueryRow(r.Context(), profileCountsQuery, r.PathValue("handle")).
 		Scan(&userID, &p.Handle, &p.Name, &joined,
 			&p.Bio, &p.Github, &p.Linkedin, &p.Website, &p.CvURL, &p.Avatar,
-			&p.EmailNotifications,
+			&p.EmailNotifications, &p.Interests,
 			&p.Posts, &p.Answers, &p.Accepted)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such user"})
 		return
 	}
 	p.Joined = joined.Format("Jan 2006")
+	if p.Interests == nil {
+		p.Interests = []string{}
+	}
 
 	all, err := s.leaderboardRows(r.Context(), nil, "")
 	if err != nil {

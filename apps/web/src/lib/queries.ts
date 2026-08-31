@@ -36,6 +36,28 @@ export function useFeed(initialData?: FeedEntry[]) {
   });
 }
 
+export interface FeedCounts {
+  all: number;
+  question: number;
+  project: number;
+  post: number;
+}
+
+/*
+ * Totals for the filter tabs. Counted in SQL rather than derived from
+ * useFeed: that array is one capped page, so the chips used to report how
+ * many of the newest 20 posts were questions. Polls on the feed's interval
+ * so a chip never disagrees with the list it labels.
+ */
+export function useFeedCounts() {
+  return useQuery({
+    queryKey: queryKeys.feedCounts,
+    queryFn: () => get<FeedCounts>("/api/posts/counts"),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useEntry(id: string, initialData?: ContentEntry) {
   return useQuery({
     queryKey: queryKeys.entry(id),
@@ -68,6 +90,14 @@ export function useInfinitePosts(params: Record<string, string> = {}) {
       return get<PostPage>(`/api/posts?${qs}`);
     },
     getNextPageParam: (last) => last.next || undefined,
+    // Every param change (kind tab, tag, search query) is a new key; holding
+    // the previous board until the next one lands keeps the grid from
+    // flashing empty on each keystroke.
+    placeholderData: keepPreviousData,
+    // Focus-refetch replays EVERY loaded page, so deep in the feed one
+    // window focus is 50+ requests. staleTime keeps that to the cases where
+    // the data has actually aged, without giving up focus freshness.
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -101,6 +131,40 @@ export function useJobs(initialData?: Job[]) {
   });
 }
 
+export interface ForYouData {
+  /** Interests the suggestions matched — empty means none are set yet. */
+  interests: string[];
+  items: FeedEntry[];
+}
+
+/**
+ * Interest-matched suggestions. Deliberately NOT the main feed: relevance
+ * ordering isn't a monotonic key, so it can't back cursor pagination.
+ */
+export function useForYou(initialData?: ForYouData) {
+  return useQuery({
+    queryKey: queryKeys.forYou,
+    queryFn: () => get<ForYouData>("/api/rails/for-you"),
+    initialData,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export interface TagOption {
+  name: string;
+  posts: number;
+}
+
+/** Real tags for the interest picker — users choose, they don't invent. */
+export function useTags(initialData?: TagOption[]) {
+  return useQuery({
+    queryKey: queryKeys.tags,
+    queryFn: () => get<TagOption[]>("/api/tags"),
+    initialData,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export interface BoardEntry {
   rank: number;
   handle: string;
@@ -121,7 +185,7 @@ export function useLeaderboard(params: Record<string, string>) {
 
 export interface NotificationItem {
   id: string;
-  kind: "reply" | "vote" | "accept";
+  kind: "reply" | "thread" | "vote" | "accept";
   actor: string;
   time: string;
   read: boolean;
@@ -169,6 +233,8 @@ export interface ProfileDetail {
   website: string;
   cvUrl: string;
   avatar: string;
+  interests: string[];
+  emailNotifications: boolean;
   posts: number;
   answers: number;
   accepted: number;
@@ -185,5 +251,36 @@ export function useMe() {
       return res.json();
     },
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export interface SearchPerson {
+  handle: string;
+  name: string;
+  avatar?: string;
+  tags: string[];
+  reputation: number;
+}
+
+export interface UniversalSearchResults {
+  posts: FeedEntry[];
+  people: SearchPerson[];
+  tags: { name: string; posts: number }[];
+}
+
+/*
+ * ⌘K palette. Cached per search term, so re-opening the palette or
+ * retyping a term already seen costs no request; the caller debounces the
+ * input, and keepPreviousData holds the last results while the next term
+ * resolves so the list never blanks mid-typing.
+ */
+export function useUniversalSearch(q: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.universalSearch(q),
+    queryFn: () =>
+      get<UniversalSearchResults>(`/api/search?q=${encodeURIComponent(q)}`),
+    enabled: enabled && q.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
   });
 }

@@ -15,6 +15,13 @@ export const queryKeys = {
   saved: ["saved"] as const,
   jobs: ["jobs"] as const,
   universalSearch: (q: string) => ["search-all", q] as const,
+  /** Per-kind totals for the feed's filter tabs — counted in SQL, not
+   *  derived from a loaded page. */
+  feedCounts: ["feed-counts"] as const,
+  /** Interest-matched suggestions ("For you"). */
+  forYou: ["for-you"] as const,
+  /** Tags that exist on real posts — backs the interest picker. */
+  tags: ["tags"] as const,
 };
 
 /** Params for a given board state — shared by page prefetch and client hook. */

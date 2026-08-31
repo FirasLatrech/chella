@@ -15,7 +15,9 @@ import { Avatar, skyPosition } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { AuthorLink } from "@/components/dashboard/author-link";
 import { SaveButton } from "@/components/post/save-button";
+import { CopyLinkButton } from "@/components/post/copy-link-button";
 import { MediaTrigger } from "@/components/ui/media-viewer";
+import { CardImage } from "@/components/ui/card-image";
 
 export type FeedKind = "question" | "project" | "post";
 
@@ -156,10 +158,9 @@ export function FeedItem({ entry }: { entry: FeedEntry }) {
                   label="View image"
                   className="absolute inset-0"
                 >
-                  <div
-                    style={{ backgroundImage: `url(${entry.image})` }}
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-300 ease-out group-hover:scale-[1.06]"
-                  />
+                  <div className="absolute inset-0 transition-transform duration-300 ease-out group-hover:scale-[1.06]">
+                    <CardImage src={entry.image} sizes="112px" />
+                  </div>
                 </MediaTrigger>
               ) : (
                 <div
@@ -191,6 +192,10 @@ export function FeedItem({ entry }: { entry: FeedEntry }) {
             <Stat icon={ChatRoundDotsIcon} value={entry.replies} />
             <Stat icon={EyeIcon} value={entry.views} />
             {/* Visible on hover, or always once saved. */}
+            <CopyLinkButton
+              id={entry.id}
+              className="-my-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            />
             <SaveButton
               id={entry.id}
               saved={entry.saved ?? false}

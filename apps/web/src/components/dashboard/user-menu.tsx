@@ -14,6 +14,7 @@ import {
   RankingIcon,
   Logout2Icon,
   LoginIcon,
+  PenNewSquareIcon,
 } from "@solar-icons/react/bold-duotone";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui/avatar";
@@ -28,6 +29,7 @@ import {
 import { useInteractionSound } from "@/lib/sound";
 import { useMe, queryKeys } from "@/lib/queries";
 import { logout } from "@/lib/mutations";
+import { openEditProfile } from "@/lib/edit-profile";
 
 export function UserMenu() {
   const router = useRouter();
@@ -131,6 +133,25 @@ export function UserMenu() {
               </MenuItem>
             );
           })}
+
+          {/* Opens the editor over the current page — this is where people
+              look for it, and it shouldn't cost them their place. */}
+          <MenuItem>
+            <button
+              onClick={openEditProfile}
+              className={cn(
+                controlItemBase,
+                controlItemSizes.md,
+                "w-full gap-2.5",
+              )}
+            >
+              <PenNewSquareIcon
+                size={16}
+                className="text-muted-foreground shrink-0"
+              />
+              <span className="flex-1 truncate text-left">Edit profile</span>
+            </button>
+          </MenuItem>
 
           <MenuSeparator className="bg-border-surface my-1 h-px" />
 

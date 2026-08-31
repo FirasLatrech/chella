@@ -118,6 +118,29 @@ export async function fetchTrendingTags(): Promise<TrendingTag[]> {
   return res.json();
 }
 
+export interface ForYou {
+  /** The interests these suggestions were matched on — the UI states why. */
+  interests: string[];
+  items: FeedEntry[];
+}
+
+export async function fetchForYou(): Promise<ForYou> {
+  const res = await apiFetch("/api/rails/for-you");
+  if (!res.ok) return { interests: [], items: [] };
+  return res.json();
+}
+
+export interface TagOption {
+  name: string;
+  posts: number;
+}
+
+export async function fetchTags(): Promise<TagOption[]> {
+  const res = await apiFetch("/api/tags");
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export interface TagRank {
   tag: string;
   rank: number;
@@ -140,6 +163,8 @@ export interface Profile {
   website: string;
   cvUrl: string;
   avatar: string;
+  /** Declared topics driving "For you"; absent on older cached payloads. */
+  interests?: string[];
   emailNotifications: boolean;
   badges?: ProfileBadge[];
 }
@@ -215,6 +240,7 @@ export async function fetchProfileStats(handle: string): Promise<
       website: string;
       badges: ProfileBadge[];
       avatar: string;
+      interests: string[];
       emailNotifications: boolean;
     })
   | null
@@ -250,6 +276,7 @@ export async function fetchProfileStats(handle: string): Promise<
     website: detail.website,
     cvUrl: detail.cvUrl,
     avatar: detail.avatar,
+    interests: detail.interests ?? [],
     emailNotifications: detail.emailNotifications,
     activity,
     tagRanks: detail.tagRanks ?? [],
@@ -260,7 +287,6 @@ export async function fetchProfileStats(handle: string): Promise<
 // Pure derivations live in lib/derive.ts (client-safe); re-exported here so
 // existing server pages keep their imports.
 export {
-  questionsFromFeed,
   relatedTo,
   type ProfileLink,
   type ProfileStats,

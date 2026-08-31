@@ -54,6 +54,8 @@ export interface ProfileDetailsInput {
   website: string;
   cvUrl: string;
   avatar: string;
+  /** Topics driving "For you". Sent lowercased; the server re-normalizes. */
+  interests: string[];
   emailNotifications?: boolean;
 }
 
@@ -149,8 +151,11 @@ export function readAllNotifications() {
   return post("/api/notifications/read-all");
 }
 
-export function createReply(postId: string, text: string) {
-  return post<{ id: string }>(`/api/posts/${postId}/replies`, { text });
+export function createReply(postId: string, text: string, parentId?: string) {
+  return post<{ id: string }>(`/api/posts/${postId}/replies`, {
+    text,
+    ...(parentId ? { parentId } : {}),
+  });
 }
 
 export function votePost(postId: string, direction: -1 | 0 | 1) {

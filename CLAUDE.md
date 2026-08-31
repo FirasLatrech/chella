@@ -89,7 +89,22 @@ styled with our tokens. Components live in `apps/web/src/components/ui/`.
 
 - `/` — dashboard (feed). `/ui` — component showcase, kept as a living style
   reference. `/[section]` — placeholder pages for sidebar destinations that
-  aren't built yet (questions, projects, jobs, leaderboard, people, saved).
+  aren't built yet (currently only `people`).
+- **There is NO `/projects` route either** — removed along with
+  `components/projects/` (`ProjectsBrowser`, `ProjectCard`, `VotePill`), the
+  same way `/questions` went. Projects remain a post KIND, browsable from the
+  feed's Projects tab. The feed is now the ONE list, so it honours `?tag=`
+  (the filter `/projects` used to own): trending tags, the search palette and
+  the sidebar all point at `/?tag=`, `FeedList` passes it through to
+  `useInfinitePosts`, and `app/page.tsx` MUST include it in the prefetched
+  params or hydration misses. A filtered feed shows a "Filtered by #tag ·
+  Clear" line — an invisible filter looks like an empty feed.
+- **There is NO `/questions` route** — it was removed along with
+  `components/questions/` and the `questionsFromFeed` helper. Questions are
+  still a post KIND, browsable via the feed's Questions tab
+  (`/api/posts?kind=question`); don't recreate the page. Anything that
+  previously linked to `/questions` or `/projects` now points at `/`, with
+  tag links carrying `?tag=`.
 - Dashboard components live in `apps/web/src/components/dashboard/`.
   `Shell` provides the sidebar + inset content panel; wrap page content in it.
 - The shell applies the same frame-inside-tint relationship as `Card`, at page
@@ -122,7 +137,7 @@ external tooling) and an **idempotent seed** (no-op once `posts` has rows).
 
 Frontend consumes it via `apps/web/src/lib/api.ts`
 (`API_URL ?? http://localhost:4120` — Next does NOT read the repo-root .env).
-Data pages (`/`, `/questions`, `/projects`, `/post/[id]`) are
+Data pages (`/`, `/projects`, `/post/[id]`) are
 `force-dynamic`, so `pnpm build` never needs the API running.
 **Running the app now requires `make db` + `make api`** before `make web`.
 
@@ -148,6 +163,19 @@ Anti-spam: only the first 3 posts per UTC day earn creation points. Windows
 are rolling (`periodSince`: 24h/7d/30d/365d/nil); seeded base votes count in
 all-time only. `GET /api/leaderboard?period=&tag=` serves the boards (≤0
 points skipped, limit 50); profiles get `tagRanks` ("#1 Go") via `tagRank`.
+**Only the top 5 render** (`VISIBLE_RANKS` in
+`components/dashboard/locked-ranks.tsx`): podium + 2 rows, then `LockedRanks`
+draws a blurred, `inert` preview under a wash and a "Top N shown" lock, same
+treatment as the jobs board's coming-soon state. The preview rows are INVENTED
+people, never real ones blurred — a blurred real name is still a real name —
+and there are as many of them as ranks actually hidden. **This is cosmetic, not
+access control**: `GET /api/leaderboard` still returns the whole board, so
+ranks past the cut sit in the page's hydration payload. Gate the endpoint if it
+ever needs to be a real one.
+The page has ONE filter row (period + tag, in `LeaderboardBrowser`, sticky and
+opaque). `LeaderboardList` used to carry a SECOND, client-only period switcher
+that re-sorted the same rows — two filters that disagreed. Don't reintroduce
+it; that component is presentational now.
 Frontend: `boardParams` lives in `lib/keys.ts` (NOT the client component —
 server pages import it for prefetch) and `LeaderboardBrowser` re-queries per
 period/tag with the previous board held. Composer drafts survive 401→login via
@@ -174,14 +202,40 @@ and every feed/entry read carries `saved` for the requesting user.
 optimistically (feed + the `["posts", …]` search family + the entry) and
 invalidates `queryKeys.saved`; on the detail page use `SaveEntryButton`,
 which reads state from the entry cache. `/saved` filters by kind client-side.
+**Copy link**: `components/post/copy-link-button.tsx` — on feed cards, feed
+rows (hover-revealed, like SaveButton) and the post header. Cards are `<Link>`s,
+so the handler MUST `preventDefault()` + `stopPropagation()` or copying also
+navigates. `navigator.clipboard` is undefined on insecure origins and rejects
+when the document isn't focused, so there's an `execCommand` fallback and a
+"Press ⌘C to copy" state if both fail — never a silent no-op. Confirmation is
+the tooltip flipping to "Copied" (plus a green check) for 1.6s rather than a
+toast; the timer is cleared on unmount because the virtualized feed unmounts
+rows mid-timeout.
+**Tooltips**: `components/ui/tooltip.tsx` — hover/focus label for icon-only
+controls, CSS-`absolute` inside a `relative` wrapper (never Headless UI's
+`anchor` prop — it portals to the body and causes a scroll jump). Surface
+matches the contributions-graph tooltip; `pointer-events-none` so it can never
+swallow the click it describes.
+
 **Media lightbox**: `components/ui/media-viewer.tsx` (`MediaTrigger` wraps
 any thumbnail/link; kind inferred from extension — image/pdf/video). Feed
-thumbnails and the post hero render as `background-image` divs (user prefers
-bg-cover over `<img>`), wrapped in `MediaTrigger`; the CV opens in the
-viewer, not a new tab. **Posting gate**: `createPost` returns 403 until the
-user has at least one profile detail (bio, link or CV) — the composer shows
-a "Complete your profile to post" link and disables Publish (server check is
-authoritative).
+thumbnails and the post hero render through `components/ui/card-image.tsx`
+(`CardImage`), wrapped in `MediaTrigger`. It is an `<img class="object-cover">`
+— visually identical to the `background-image` + `bg-cover` divs it replaced,
+but only an element image gets `loading="lazy"` + `decoding="async"`, which is
+what keeps a 1000-row feed smooth. It fades up from a slight blur on load, over
+a pulsing `bg-muted` frame, and remembers settled sources in a module-level Set
+so a row leaving and re-entering the virtualizer doesn't replay the fade.
+`next/image` is deliberately NOT used: post image URLs are user-supplied from
+an env-dependent uploader host, so the optimizer would need per-environment
+remotePatterns or a wildcard that re-serves arbitrary remote images (there is
+an `eslint-disable` for `no-img-element` recording this).
+The feed's sticky bands (composer + filter tabs) are OPAQUE `bg-background`,
+not tinted+blurred — cards scrolling underneath ghosted through the tint.
+Translucency in this app is for surfaces over the sky backdrop, not over the
+content panel; the CV opens in the
+viewer, not a new tab. Posting has no profile-completeness gate — any signed-in
+user can publish regardless of profile state.
 
 **Rich text** (migration-free): post bodies are stored as jsonb `Block[]`
 (`p` / `heading` / `code` / `list` / `quote`). The whitelist is enforced in
@@ -196,6 +250,43 @@ replies. Authorship is enforced inside the SQL (`where id = $1 and author_id
 403 (a 403 would confirm someone else's id exists). Deleting an accepted
 answer clears the question's `solved` flag. Reputation and badges need no
 unwinding — both recompute from the domain tables.
+
+**Threads** (migration 0016, `replies.parent_id`): ONE level of nesting. A
+reply may carry `parentId` pointing at a top-level reply on the same post; the
+API re-parents anything deeper to the thread's root (`createReply`), rejects a
+parent from another post (404) and refuses to accept a nested reply
+(400 — only top-level answers can be accepted). Children cascade on delete.
+Nested replies notify the ROOT reply's author with kind `thread` ("replied to
+your comment"), not the post author (mail + `notifications.tsx` KIND map +
+the `NotificationItem` union all carry it). `replyItem` gained `createdAt`
+(RFC 3339) because `time` is a relative label and ids aren't chronological.
+`Discussion` builds the tree client-side (roots + `children` sorted oldest
+first) and the heading counts ROOTS only. **Reply sorting** is client-side too
+(the discussion is fetched whole): Top / Newest / Oldest via `Tabs`, accepted
+answer always pinned first; default is Top for questions, Oldest for
+comments. The inline `ThreadComposer` is a plain `Textarea` (⌘/Ctrl+Enter
+sends, Esc closes) — replies are plain text everywhere.
+
+**Composer drafts** (`lib/draft.ts`): ONE draft per user in localStorage
+(`chelaa:draft:<handle>`), autosaved 400ms after each change and flushed on
+unmount; saving an empty draft removes it. Closing the composer keeps the draft
+— the collapsed pill shows "Draft · title" with a discard ×; publishing clears
+it. The 401 → login bounce reuses the same store plus a sessionStorage
+`resume` flag so the composer comes back OPEN (`markResume`/`takeResume`);
+the old `chelaa:draft` sessionStorage blob is gone. Blocks are stored and
+restored via `initialDoc={blocksToDoc(...)}`, so formatting survives.
+The editor unmounts on collapse, so `open()` hands the current blocks back in
+through `mountDoc` + a key bump.
+
+**Feed search** lives IN the filter row (`SearchInput`, `/` focuses it) — not
+the ⌘K palette, which jumps to one thing. Local state, debounced 250ms into
+`q` on `useInfinitePosts` (the API already matched title/excerpt/author/tags);
+deliberately NOT in the URL, so a keystroke doesn't re-render the server page
+and the empty query still hits the prefetched key. Kind counts hide while
+searching (they'd disagree with the narrowed list). `useInfinitePosts` uses
+`placeholderData: keepPreviousData` so param changes don't flash empty, and
+`loadMore` is gated on `!isPlaceholderData` so a held-over board is never
+paged with the wrong cursor. `FeedList` renders its own empty state.
 
 **Infinite scroll + virtualization** (NOT numbered pagination — user asked
 for this explicitly): `GET /api/posts?paged=1&cursor=` returns
@@ -248,6 +339,65 @@ the mutation). Password resets now actually send. Opt out per user via
 real profile state (bio/posts/answers/reputation), so it can't congratulate
 someone for work they haven't done, and it removes itself when complete.
 Step one is the profile because posting is gated behind it.
+
+**Suggestions / "For you"** (migration 0015, `users.interests text[]`):
+`apps/api/suggestions.go`. Interests are **explicit** (picked in the profile
+modal) with a **derived fallback** to `userTopTags` — without the fallback the
+feature is blank for exactly the people who need it (new users, who have
+neither picked interests nor posted enough to derive them). Stored lowercased
+and de-duplicated (`normalizeInterests` in `profile.go`, cap 10 × 40 chars);
+"Go"/"go" collapse to one, matching how tags group everywhere else.
+**ONE feed, ranked — not a separate section.** `GET /api/posts?sort=foryou`
+floats posts matching the reader's interests to the top, everything else
+follows newest-first. Nothing is filtered out: interests RANK the feed, they
+never gate it (same rule the jobs board follows), and with no interests set
+the sort falls through to plain chronological.
+**`sort=foryou` must use the OFFSET cursor, not the `(created_at, id)` keyset**
+— relevance isn't monotonic, so a keyset boundary skips and repeats rows. The
+`keyset` bool in `listPosts` gates both the cursor clause and the `next` value;
+verified 14 rows across 5 pages, zero duplicates. The client sends
+`sort: "foryou"` from `FeedList`, and **`app/page.tsx` must prefetch the SAME
+params** (`infinite({sort:"foryou"})`) or hydration misses and the feed
+refetches on mount.
+`GET /api/rails/for-you` still returns `{interests, items}` but is now used
+only for the interest list in the "Sorted for you" note above the feed
+(`for-you.tsx` → `ForYouNote`); `queryKeys.forYou` is a third cache shape that
+`lib/cache.ts` patches alongside the flat and paged lists.
+`GET /api/tags` backs the picker so users choose real tags instead of
+inventing ones that match nothing.
+
+**Feed cards are a FIXED height** — `h-[26rem]` on the card root in
+`feed-card.tsx`, never `h-full`. `VirtualFeedGrid` chunks entries into rows
+and each row takes its tallest card, so `h-full` only equalises cards WITHIN
+one row; cards in different rows still disagreed and left large gaps. A fixed
+height is what makes every card match everywhere.
+**Only a REAL upload gets a thumbnail** (`entry.image`) — no sky crop, no
+generated cover, nothing on a post that never had an image. (Both were tried
+and rejected by the owner; do not reintroduce placeholder cover art.) Since
+cards are a fixed height either way, whichever element can absorb the slack
+takes `flex-1`: the thumbnail when there is one, the excerpt
+(`line-clamp-[14]`) when there isn't, which keeps the stat bar on the bottom
+edge.
+**Line-clamp boxes must match their line-height**: two lines is `2.75em` at
+`leading-snug` (1.375, the title) and `3.25em` at `leading-relaxed` (1.625,
+the excerpt). `h-[2.6em]` clipped the second line through its middle.
+The tag row stays a fixed `h-[1.375rem]` so a card with no tags doesn't shift
+the rest. Verified in-browser at spread 0 across: thumbnail/no-thumbnail, no
+tags, 12 tags, empty excerpt, 500-word excerpt, and a 25× title.
+`ROW_HEIGHT` in `virtual-feed-grid.tsx` (416 card + 16 gap = 432) is the row
+box, and the gap is PADDING INSIDE that box (`pb-4`), not a flex `gap` between
+boxes — update it if the card height changes. The grid deliberately passes no
+`measureElement`: with fixed-height cards there is nothing to measure, and
+measuring returned 416 against a real 432 pitch, drifting 16px per row (~4000px
+over 1000 posts) which made the scrollbar jump mid-scroll.
+
+**The profile editor opens ANYWHERE** — mounted once in `Shell`, driven by the
+module-level store in `lib/edit-profile.ts` (`openEditProfile()`, same
+`useSyncExternalStore` pattern as `lib/vote-guard.ts`). It fetches its own data
+via `useProfile` instead of taking a server `initial` prop, and re-seeds per
+open. There is no `?edit=1` route param any more — editing a bio shouldn't
+cost you your place in the feed. Fields split across two tabs: **Profile**
+(photo, bio, interests) and **Details** (links, CV, notifications).
 
 **Badges** (`apps/api/badges.go`): derived on read, never stored — same
 reasoning as the reputation formula. No table, no backfill, and deleting

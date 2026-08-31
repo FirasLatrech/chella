@@ -11,16 +11,24 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType } from "react";
+import type { JSONContent } from "@tiptap/react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { RichEditor } from "@/components/ui/rich-editor";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { playBounceSound, useInteractionSound } from "@/lib/sound";
 import { uploadImage, ApiError } from "@/lib/mutations";
-import { useMe, useProfile } from "@/lib/queries";
+import { useMe } from "@/lib/queries";
+import { blocksToDoc } from "@/lib/blocks";
+import {
+  clearDraft,
+  loadDraft,
+  markResume,
+  saveDraft,
+  takeResume,
+  type ComposerDraft,
+} from "@/lib/draft";
 import type { FeedKind } from "./feed-item";
-import type { ComposerDraft } from "./feed-section";
 import type { Block } from "@/lib/content";
 
 const KINDS: {
@@ -58,10 +66,18 @@ const KINDS: {
 const POPULAR_TAGS = ["react", "nextjs", "go", "ai", "devops", "career"];
 const MAX_TAGS = 3;
 
+const AUTOSAVE_MS = 400;
+
 /*
  * Inline composer — expands in place instead of opening a modal. Collapsed it
  * is a single pill; clicking it (or a quick action) grows the same frame into
  * title + description + tags + image attach, so writing never leaves the feed.
+ *
+ * Drafts autosave (lib/draft.ts, per user, localStorage) a beat after each
+ * change. Closing the composer keeps the draft — the collapsed pill shows
+ * "Draft · title" with a discard control — and publishing clears it. That
+ * one store also carries writing across a 401 → login bounce; the only extra
+ * step there is a session flag so the composer comes back open.
  */
 export function Composer({
   onPublish,
@@ -78,7 +94,9 @@ export function Composer({
   const [image, setImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const [restoredBody, setRestoredBody] = useState<string | undefined>();
+  // What the editor mounts with. It unmounts when the composer collapses, so
+  // reopening (or restoring a draft) has to hand the content back in.
+  const [mountDoc, setMountDoc] = useState<JSONContent | undefined>();
   const [tags, setTags] = useState<string[]>([]);
   const [addingTag, setAddingTag] = useState(false);
   const [customTag, setCustomTag] = useState("");
@@ -89,56 +107,63 @@ export function Composer({
   const sound = useInteractionSound();
 
   const { data: me } = useMe();
-  // Posting requires a filled-in profile (bio, link or CV) — the API
-  // enforces this too; the gate here just explains it before the 403.
-  const { data: myProfile } = useProfile(me?.handle);
-  const profileComplete =
-    !myProfile ||
-    Boolean(
-      myProfile.bio ||
-        myProfile.github ||
-        myProfile.linkedin ||
-        myProfile.website ||
-        myProfile.cvUrl,
-    );
+  const handle = me?.handle;
   const active = KINDS.find((k) => k.kind === kind) ?? KINDS[0];
   const valid = title.trim().length > 0;
+  const hasDraft =
+    title.trim().length > 0 || body.trim().length > 0 || tags.length > 0;
 
   useEffect(() => {
     if (expanded) titleRef.current?.focus();
   }, [expanded]);
 
-  // Restore a draft stashed by a 401 → login round-trip. Applied in a
-  // microtask after hydration: no sync setState in the effect body, and the
-  // server-rendered collapsed state hydrates cleanly first.
+  // Restore the saved draft once we know whose it is. Applied in a microtask
+  // after hydration: no sync setState in the effect body, and the
+  // server-rendered collapsed state hydrates cleanly first. It opens expanded
+  // only when coming back from a login bounce; otherwise it waits in the pill.
   useEffect(() => {
-    let raw: string | null = null;
-    try {
-      raw = sessionStorage.getItem("chelaa:draft");
-      if (raw) sessionStorage.removeItem("chelaa:draft");
-    } catch {}
-    if (!raw) return;
-    const parsed = (() => {
-      try {
-        return JSON.parse(raw) as ComposerDraft;
-      } catch {
-        return null;
-      }
-    })();
-    if (!parsed) return;
+    if (!handle) return;
+    const saved = loadDraft(handle);
+    if (!saved) return;
+    const resume = takeResume();
     queueMicrotask(() => {
-      setKind(parsed.kind);
-      setTitle(parsed.title);
-      setBody(parsed.body);
-      setTags(parsed.tags ?? []);
-      setRestoredBody(parsed.body || undefined);
+      setKind(saved.kind);
+      setTitle(saved.title);
+      setBody(saved.body);
+      setBlocks(saved.blocks ?? []);
+      setTags(saved.tags ?? []);
+      setMountDoc(saved.blocks?.length ? blocksToDoc(saved.blocks) : undefined);
       setEditorKey((k) => k + 1);
-      setExpanded(true);
+      if (resume) setExpanded(true);
     });
-  }, []);
+  }, [handle]);
+
+  // Autosave, debounced. Saving an empty draft removes it, so clearing the
+  // fields also clears storage without a separate code path. The latest
+  // draft is kept in a ref so unmounting (navigating to a post mid-sentence)
+  // can flush what the debounce hadn't written yet.
+  const latest = useRef<ComposerDraft | null>(null);
+  useEffect(() => {
+    if (!handle) return;
+    const draft = { kind, title, body, blocks, tags };
+    latest.current = draft;
+    const timer = setTimeout(() => saveDraft(handle, draft), AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+  }, [handle, kind, title, body, blocks, tags]);
+  useEffect(() => {
+    if (!handle) return;
+    return () => {
+      if (latest.current) saveDraft(handle, latest.current);
+    };
+  }, [handle]);
 
   function open(next: FeedKind) {
     setKind(next);
+    if (!expanded) {
+      // The editor is about to mount; give it back whatever is in the draft.
+      setMountDoc(blocks.length ? blocksToDoc(blocks) : undefined);
+      setEditorKey((k) => k + 1);
+    }
     setExpanded(true);
   }
 
@@ -174,13 +199,32 @@ export function Composer({
     setAddingTag(false);
   }
 
-  function cancel() {
+  // Clears everything — fields, attachment and the stored draft.
+  function discard() {
     discardImage();
     setTitle("");
     setBody("");
+    setBlocks([]);
+    setMountDoc(undefined);
     setEditorKey((k) => k + 1);
     resetTags();
+    if (handle) clearDraft(handle);
+  }
+
+  // Closing keeps the draft: it is autosaved and the pill says so. Discarding
+  // is a deliberate, separate action on the pill.
+  function close() {
+    setAddingTag(false);
+    setCustomTag("");
     setExpanded(false);
+  }
+
+  // Before leaving for login, make sure the very latest keystrokes are in
+  // storage (the debounce may not have fired) and flag the return trip.
+  function stashForLogin() {
+    if (handle) saveDraft(handle, { kind, title, body, blocks, tags });
+    markResume();
+    router.push("/login?next=%2F");
   }
 
   async function publish() {
@@ -195,13 +239,7 @@ export function Composer({
           imageUrl = await uploadImage(imageFile);
         } catch (err) {
           if (err instanceof ApiError && err.status === 401) {
-            try {
-              sessionStorage.setItem(
-                "chelaa:draft",
-                JSON.stringify({ kind, title: title.trim(), body: body.trim(), tags }),
-              );
-            } catch {}
-            router.push("/login?next=%2F");
+            stashForLogin();
             return;
           }
           throw err;
@@ -215,13 +253,15 @@ export function Composer({
         tags,
         imageUrl,
       });
-      if (!ok) return;
+      if (!ok) {
+        // FeedSection already sent us to login; keep the writing for the
+        // way back.
+        if (handle) saveDraft(handle, { kind, title, body, blocks, tags });
+        markResume();
+        return;
+      }
       playBounceSound();
-      discardImage();
-      setTitle("");
-      setBody("");
-      setEditorKey((k) => k + 1);
-      resetTags();
+      discard();
       setExpanded(false);
     } finally {
       setBusy(false);
@@ -231,7 +271,7 @@ export function Composer({
   return (
     <div
       onKeyDown={(e) => {
-        if (e.key === "Escape") cancel();
+        if (e.key === "Escape") close();
       }}
       className={cn(
         "bg-muted/60 rounded-2xl p-1.5",
@@ -257,6 +297,31 @@ export function Composer({
               maxLength={120}
               className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
             />
+          ) : hasDraft ? (
+            <>
+              <button
+                {...sound}
+                onClick={() => open(kind)}
+                className="flex min-w-0 flex-1 cursor-text items-center gap-2 bg-transparent text-left text-sm"
+              >
+                <span className="bg-brand/10 text-brand-content ring-brand/25 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-[0.5px]">
+                  Draft
+                </span>
+                <span className="text-foreground min-w-0 truncate">
+                  {title.trim() || body.trim().slice(0, 80)}
+                </span>
+              </button>
+              <Button
+                iconOnly
+                size="sm"
+                variant="ghost"
+                aria-label="Discard draft"
+                onClick={discard}
+                className="text-muted-foreground"
+              >
+                <CloseCircleIcon size={16} />
+              </Button>
+            </>
           ) : (
             <button
               {...sound}
@@ -282,7 +347,7 @@ export function Composer({
               <RichEditor
                 key={editorKey}
                 placeholder="Add the details — context, code, links…"
-                initialText={restoredBody}
+                initialDoc={mountDoc}
                 onTextChange={setBody}
                 onBlocksChange={setBlocks}
               />
@@ -435,21 +500,13 @@ export function Composer({
               >
                 <GalleryIcon size={16} />
               </Button>
-              <Button size="sm" variant="ghost" onClick={cancel}>
-                Cancel
+              <Button size="sm" variant="ghost" onClick={close}>
+                Close
               </Button>
-              {me && !profileComplete ? (
-                <Link
-                  href={`/people/${me.handle}`}
-                  className="text-brand-content bg-brand/10 hover:bg-brand/15 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
-                >
-                  Complete your profile to post →
-                </Link>
-              ) : null}
               <Button
                 size="sm"
                 variant="brand"
-                disabled={!valid || busy || !profileComplete}
+                disabled={!valid || busy}
                 onClick={publish}
               >
                 {busy ? "…" : "Publish"}

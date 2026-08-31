@@ -137,6 +137,9 @@ func (s *server) sendNotificationEmail(recipient int64, kind, actor, postTitle s
 		case "reply":
 			heading = fmt.Sprintf("@%s replied to your post", actor)
 			body = fmt.Sprintf("<p>There's a new reply on <strong>%s</strong>.</p>", title)
+		case "thread":
+			heading = fmt.Sprintf("@%s replied to your comment", actor)
+			body = fmt.Sprintf("<p>There's a new reply in your thread on <strong>%s</strong>.</p>", title)
 		case "vote":
 			heading = fmt.Sprintf("@%s upvoted your post", actor)
 			body = fmt.Sprintf("<p><strong>%s</strong> earned an upvote.</p>", title)

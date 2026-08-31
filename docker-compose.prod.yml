@@ -1,0 +1,79 @@
+# Production stack: Postgres + API + web, all on an internal network with
+# only the web and API ports published.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Required in .env (see .env.example): POSTGRES_PASSWORD, and for a real
+# deployment also APP_URL, CORS_ORIGIN, NEXT_PUBLIC_API_URL, COOKIE_SECURE=1.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chelaa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-chelaa}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Not published: only the API talks to it, over the internal network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chelaa} -d ${POSTGRES_DB:-chelaa}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-chelaa}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-chelaa}?sslmode=disable
+      PORT: 4120
+      # The browser origin allowed to call the API, and the base URL used in
+      # emails. Both must be the real domain in production.
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:4100}
+      APP_URL: ${APP_URL:-http://localhost:4100}
+      # Set to 1 behind TLS so session cookies carry Secure.
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      # Set to 1 ONLY behind a trusted reverse proxy, or clients can spoof
+      # their IP and evade rate limiting.
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-Chelaa <noreply@chelaa.tech>}
+    ports:
+      - "${API_PORT:-4120}:4120"
+    volumes:
+      # Only used when R2 is unconfigured; harmless otherwise.
+      - api_uploads:/app/uploads
+
+  web:
+    build:
+      # Repo root: pnpm workspace install needs the lockfile above apps/web.
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Baked into the client bundle at build time — a runtime env var
+        # cannot change it after the fact.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4120}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # Server-side calls stay on the internal network.
+      API_URL: http://api:4120
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4120}
+    ports:
+      - "${WEB_PORT:-4100}:4100"
+
+volumes:
+  postgres_data:
+  api_uploads:

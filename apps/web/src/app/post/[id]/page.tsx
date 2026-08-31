@@ -11,10 +11,12 @@ import { Shell } from "@/components/dashboard/shell";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { CardImage } from "@/components/ui/card-image";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { VoteColumn } from "@/components/post/vote-column";
 import { Discussion } from "@/components/post/discussion";
 import { SaveEntryButton } from "@/components/post/save-entry-button";
+import { CopyLinkButton } from "@/components/post/copy-link-button";
 import { PostActions } from "@/components/post/post-actions";
 import { MediaTrigger } from "@/components/ui/media-viewer";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
@@ -25,8 +27,9 @@ import { BlockView } from "@/components/post/block-view";
 
 const KIND_LABEL = { question: "Question", project: "Project", post: "Post" };
 const BACK: Record<string, { href: string; label: string }> = {
-  question: { href: "/questions", label: "Back to questions" },
-  project: { href: "/projects", label: "Back to projects" },
+  // Questions have no page of their own — they live in the feed.
+  question: { href: "/", label: "Back to feed" },
+  project: { href: "/", label: "Back to feed" },
   post: { href: "/", label: "Back to feed" },
 };
 
@@ -77,6 +80,7 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                       ) : null}
                     </h1>
                     <div className="flex shrink-0 items-center gap-1">
+                      <CopyLinkButton id={entry.id} size={16} />
                       <SaveEntryButton postId={entry.id} />
                       <PostActions postId={entry.id} />
                     </div>
@@ -110,11 +114,9 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                       label="View image"
                       className="mt-5 block w-full"
                     >
-                      <div
-                        role="img"
-                        style={{ backgroundImage: `url(${entry.image})` }}
-                        className="ring-border-surface-strong aspect-[2/1] max-h-[420px] w-full rounded-2xl bg-cover bg-center ring-[0.5px]"
-                      />
+                      <div className="ring-border-surface-strong relative aspect-[2/1] max-h-[420px] w-full overflow-hidden rounded-2xl ring-[0.5px]">
+                        <CardImage src={entry.image} sizes="100vw" />
+                      </div>
                     </MediaTrigger>
                   ) : null}
 

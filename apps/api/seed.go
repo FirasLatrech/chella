@@ -33,8 +33,8 @@ func seed(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, u := range users {
 		var id int64
 		if err := tx.QueryRow(ctx,
-			`insert into users (handle, name) values ($1, $2) returning id`,
-			u.handle, u.name).Scan(&id); err != nil {
+			`insert into users (handle, name, email) values ($1, $2, $3) returning id`,
+			u.handle, u.name, u.handle+"@chelaa.tn").Scan(&id); err != nil {
 			return fmt.Errorf("seed user %s: %w", u.handle, err)
 		}
 		ids[u.handle] = id

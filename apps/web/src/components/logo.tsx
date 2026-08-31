@@ -42,9 +42,15 @@ export function Logo({
             gradientUnits="userSpaceOnUse"
           >
             <stop offset="0%" stopColor="currentColor" />
-            {/* Driven by --logo-stop so hover can animate the sweep. */}
-            <stop offset="var(--logo-stop, 45%)" stopColor="currentColor" />
-            <stop offset="100%" stopColor="var(--brand)" />
+            {/* Driven by --logo-stop so hover can animate the sweep. CSS
+                var() only resolves through the style attribute, not a
+                plain SVG attribute value. */}
+            <stop
+              offset="45%"
+              style={{ offset: "var(--logo-stop, 45%)" } as React.CSSProperties}
+              stopColor="currentColor"
+            />
+            <stop offset="100%" style={{ stopColor: "var(--brand)" } as React.CSSProperties} />
           </linearGradient>
         </defs>
       ) : null}

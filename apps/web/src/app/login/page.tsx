@@ -103,10 +103,12 @@ export default function LoginPage() {
       }
       await queryClient.invalidateQueries();
       // Return to where the guard bounced them from. Only same-origin paths —
-      // a full URL here would be an open redirect.
+      // a full URL here would be an open redirect. A hard navigation (not
+      // router.push) because Next's client router cache can be holding the
+      // pre-login redirect-to-/login response for this path, which push
+      // would just replay instead of fetching fresh with the new cookie.
       const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/");
-      router.refresh();
+      window.location.href = next?.startsWith("/") && !next.startsWith("//") ? next : "/";
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {

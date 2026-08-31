@@ -30,6 +30,12 @@ const (
 // Production runs behind HTTPS; set COOKIE_SECURE=1 there.
 var secureCookies = os.Getenv("COOKIE_SECURE") == "1"
 
+// Web and API live on different subdomains in production (www vs api), so
+// the cookie needs a shared parent domain to reach both — otherwise the
+// web app's own auth guard never sees it. Empty stays host-only, which is
+// what local dev wants (both sides are "localhost", just different ports).
+var cookieDomain = os.Getenv("COOKIE_DOMAIN")
+
 // Handles appear in URLs (/people/{handle}) and as avatar seeds — keep them tight.
 var (
 	handleRe = regexp.MustCompile(`^[a-z0-9-]{2,30}$`)
@@ -95,6 +101,7 @@ func (s *server) setSession(ctx context.Context, w http.ResponseWriter, userID i
 		Name:     sessionCookie,
 		Value:    token,
 		Path:     "/",
+		Domain:   cookieDomain,
 		Expires:  expires,
 		HttpOnly: true,
 		Secure:   secureCookies,
@@ -258,7 +265,7 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 		s.db.Exec(r.Context(), `delete from sessions where token = $1`, c.Value)
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true,
+		Name: sessionCookie, Value: "", Path: "/", Domain: cookieDomain, MaxAge: -1, HttpOnly: true,
 		Secure: secureCookies, SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusNoContent)

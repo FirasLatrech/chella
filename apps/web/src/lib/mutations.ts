@@ -105,6 +105,14 @@ export function resetPassword(token: string, password: string) {
   return post("/api/auth/reset", { token, password });
 }
 
+export function verifyEmail(code: string) {
+  return post<{ status: string }>("/api/auth/verify", { code });
+}
+
+export function resendVerification() {
+  return post<{ status: string }>("/api/auth/verify/resend");
+}
+
 export function logout() {
   return post("/api/auth/logout");
 }

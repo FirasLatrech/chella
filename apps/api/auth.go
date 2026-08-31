@@ -43,9 +43,10 @@ var (
 )
 
 type user struct {
-	ID     int64  `json:"-"`
-	Handle string `json:"handle"`
-	Name   string `json:"name"`
+	ID            int64  `json:"-"`
+	Handle        string `json:"handle"`
+	Name          string `json:"name"`
+	EmailVerified bool   `json:"emailVerified"`
 }
 
 // ensureDevPasswords gives seeded users a known password so the app is usable
@@ -76,6 +77,7 @@ func ensureDevPasswords(ctx context.Context, pool *pgxpool.Pool) error {
 func purgeExpired(ctx context.Context, pool *pgxpool.Pool) {
 	pool.Exec(ctx, `delete from sessions where expires_at < now()`)
 	pool.Exec(ctx, `delete from password_resets where expires_at < now()`)
+	pool.Exec(ctx, `delete from email_verifications where expires_at < now()`)
 }
 
 func newToken() (string, error) {
@@ -118,10 +120,10 @@ func (s *server) currentUser(r *http.Request) *user {
 	}
 	var u user
 	err = s.db.QueryRow(r.Context(), `
-		select u.id, u.handle, u.name
+		select u.id, u.handle, u.name, u.email_verified
 		from sessions s join users u on u.id = s.user_id
 		where s.token = $1 and s.expires_at > now()`, c.Value).
-		Scan(&u.ID, &u.Handle, &u.Name)
+		Scan(&u.ID, &u.Handle, &u.Name, &u.EmailVerified)
 	if err != nil {
 		return nil
 	}
@@ -201,6 +203,7 @@ func (s *server) signup(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
 		return
 	}
+	s.sendVerificationCode(id, c.Email)
 	writeJSON(w, http.StatusCreated, user{Handle: c.Handle, Name: name})
 }
 
@@ -237,9 +240,9 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		hash string
 	)
 	err := s.db.QueryRow(r.Context(), `
-		select id, handle, name, password_hash from users
+		select id, handle, name, email_verified, password_hash from users
 		where handle = $1 or lower(email) = $1`,
-		id).Scan(&u.ID, &u.Handle, &u.Name, &hash)
+		id).Scan(&u.ID, &u.Handle, &u.Name, &u.EmailVerified, &hash)
 	if err != nil {
 		// Unknown account: burn a bcrypt compare anyway so response timing
 		// doesn't reveal whether the identifier exists.

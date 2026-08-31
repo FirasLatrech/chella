@@ -28,6 +28,7 @@ async function apiFetch(path: string): Promise<Response> {
 export interface Me {
   handle: string;
   name: string;
+  emailVerified: boolean;
 }
 
 export async function fetchMe(): Promise<Me | null> {
@@ -39,8 +40,13 @@ export async function fetchMe(): Promise<Me | null> {
 /**
  * Auth guard, layer 2: validates the session against the API (the proxy only
  * checks that a cookie exists). Call at the top of every protected page.
+ * Also gates on email verification — /verify-email itself passes
+ * `skipVerifyGate` so an unverified user can actually reach that page.
  */
-export async function requireAuth(next?: string): Promise<Me> {
+export async function requireAuth(
+  next?: string,
+  skipVerifyGate = false,
+): Promise<Me> {
   const me = await fetchMe();
   if (!me) {
     redirect(
@@ -48,6 +54,9 @@ export async function requireAuth(next?: string): Promise<Me> {
         ? `/login?next=${encodeURIComponent(next)}`
         : "/login",
     );
+  }
+  if (!skipVerifyGate && !me.emailVerified) {
+    redirect("/verify-email");
   }
   return me;
 }

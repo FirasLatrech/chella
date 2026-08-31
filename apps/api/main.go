@@ -71,6 +71,8 @@ func main() {
 	mux.HandleFunc("GET /api/auth/available", s.available)
 	mux.HandleFunc("POST /api/auth/forgot", rateLimited(s.forgotPassword))
 	mux.HandleFunc("POST /api/auth/reset", rateLimited(s.resetPassword))
+	mux.HandleFunc("POST /api/auth/verify", rateLimited(s.verifyEmail))
+	mux.HandleFunc("POST /api/auth/verify/resend", rateLimited(s.resendVerification))
 	mux.HandleFunc("GET /api/users", s.listUsers)
 	mux.HandleFunc("GET /api/rails/top-week", s.topWeek)
 	mux.HandleFunc("GET /api/leaderboard", s.leaderboard)

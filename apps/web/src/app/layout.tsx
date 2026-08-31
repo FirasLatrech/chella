@@ -16,9 +16,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chelaa",
+  metadataBase: new URL("https://www.chelaa.dev"),
+  title: {
+    default: "Chelaa — where Tunisia’s engineers build their name",
+    template: "%s · Chelaa",
+  },
   description:
-    "The professional technology community for Tunisia — share knowledge, build reputation, discover opportunities.",
+    "Questions, projects and answers in one feed. Reputation from the work — never from a CV. Jobs matched to the tags you actually contribute in.",
+  openGraph: {
+    title: "Chelaa — where Tunisia’s engineers build their name",
+    description:
+      "Questions, projects and answers in one feed. Standing from the work — never from a CV.",
+    siteName: "Chelaa",
+    locale: "en",
+    type: "website",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Chelaa — where Tunisia’s engineers build their name",
+    description:
+      "Questions, projects and answers in one feed. Standing from the work — never from a CV.",
+  },
 };
 
 // Applies the stored theme before first paint so dark mode never flashes.

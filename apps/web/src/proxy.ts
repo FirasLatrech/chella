@@ -15,6 +15,8 @@ const PUBLIC_PATHS = new Set([
   "/login",
   "/forgot-password",
   "/reset-password",
+  "/robots.txt",
+  "/sitemap.xml",
 ]);
 
 export function proxy(request: NextRequest) {

@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useInteractionSound } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import { STAGE_SCENES } from "./product-stage";
+import { LandingClose } from "./landing-close";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger, ScrollToPlugin, useGSAP);
@@ -195,10 +196,11 @@ export function LandingPage() {
   }
 
   return (
-    <div
-      ref={root}
-      className="app-backdrop flex h-dvh flex-col overflow-hidden lg:flex-row"
-    >
+    <div className="app-backdrop">
+      <div
+        ref={root}
+        className="flex h-dvh flex-col overflow-hidden lg:flex-row"
+      >
       <div className="flex min-h-0 w-full shrink-0 flex-col px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-4 md:px-8 lg:max-w-[34rem] lg:flex-1 lg:px-10 lg:pb-10 xl:max-w-[38rem]">
         <header className="enter-up flex items-center gap-3">
           <Link
@@ -341,6 +343,8 @@ export function LandingPage() {
           ))}
         </div>
       </div>
+      </div>
+      <LandingClose />
     </div>
   );
 }

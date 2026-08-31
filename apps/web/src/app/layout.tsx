@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { IconProvider } from "@/components/icon-provider";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -49,6 +50,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           id="theme-init"
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
+        {/* datascan analytics — user-provided, confirmed as their own service. */}
+        <Script
+          src="https://datascan.duckdns.org/tracker.js"
+          data-site="ds_0f7e4967f51a"
+          strategy="beforeInteractive"
         />
         <Providers>
           <IconProvider>{children}</IconProvider>

@@ -272,8 +272,8 @@
   .app-backdrop::before {
     content: "";
     position: absolute;
-    /* Negative inset keeps the blur's soft edges outside the viewport. */
-    inset: -24px;
+    /* Extra inset is vertical only — a horizontal bleed became page x-scroll. */
+    inset: -24px 0;
     z-index: -2;
     background-image: linear-gradient(
         rgb(255 255 255 / 0.62),

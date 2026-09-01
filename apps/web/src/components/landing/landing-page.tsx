@@ -97,7 +97,9 @@ export function LandingPage() {
 
       const html = document.documentElement;
       const prevScroll = html.style.scrollBehavior;
+      const prevOverflowX = html.style.overflowX;
       html.style.scrollBehavior = "auto";
+      html.style.overflowX = "clip";
 
       gsap.set(copies.slice(1), { autoAlpha: 0, y: 18 });
       gsap.set(panels.slice(1), { autoAlpha: 0, y: 28 });
@@ -135,6 +137,7 @@ export function LandingPage() {
         stRef.current = st;
         return () => {
           html.style.scrollBehavior = prevScroll;
+          html.style.overflowX = prevOverflowX;
         };
       }
 
@@ -171,6 +174,7 @@ export function LandingPage() {
 
       return () => {
         html.style.scrollBehavior = prevScroll;
+        html.style.overflowX = prevOverflowX;
       };
     },
     { scope: root },

@@ -1,171 +1,229 @@
+"use client";
+
 import Link from "next/link";
+import { useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import {
   AltArrowRightIcon,
-  DocumentTextIcon,
-  ArrowUpIcon,
-  EyeIcon,
   LetterIcon,
+  CupStarIcon,
+  CodeSquareIcon,
+  CheckCircleIcon,
+  HandStarsIcon,
 } from "@solar-icons/react/bold-duotone";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { skyPosition } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { BadgeShelf, type ProfileBadge } from "@/components/profile/badge-shelf";
 import { formatPoints } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const CONTACT = "sponsor@chelaa.tech";
 
-const BADGES: ProfileBadge[] = [
-  {
-    slug: "tag-leader",
-    label: "#1 Go",
-    description: "First on the Go board",
-    tier: "gold",
-  },
-  {
-    slug: "builder",
-    label: "Builder",
-    description: "Shipped projects in public",
-    tier: "gold",
-    count: 3,
-  },
-  {
-    slug: "problem-solver",
-    label: "Problem solver",
-    description: "Accepted answers",
-    tier: "silver",
-    count: 11,
-  },
-  {
-    slug: "helper",
-    label: "Helper",
-    description: "Replies that landed",
-    tier: "bronze",
-    count: 24,
-  },
+const FORMULA = [
+  { pts: "+5", what: "a post" },
+  { pts: "+10", what: "a project" },
+  { pts: "+5", what: "an answer" },
+  { pts: "+20", what: "accepted" },
+  { pts: "+3", what: "an upvote" },
 ];
 
-const STATS = [
-  { icon: DocumentTextIcon, value: 56, label: "Contributions" },
-  { icon: ArrowUpIcon, value: 842, label: "Votes earned" },
-  { icon: EyeIcon, value: 12400, label: "Views" },
+const STAMPS = [
+  { label: "#1 Go", Icon: CupStarIcon },
+  { label: "Builder ×3", Icon: CodeSquareIcon },
+  { label: "Problem solver ×11", Icon: CheckCircleIcon },
+  { label: "Helper ×24", Icon: HandStarsIcon },
 ];
+
+const LEVEL = [
+  "bg-foreground/[0.06]",
+  "bg-brand/25",
+  "bg-brand/45",
+  "bg-brand/70",
+  "bg-brand",
+];
+
+const WEEKS = 52;
+const DAYS = 7;
+
+function yearFromSeed(seed: string) {
+  const n = WEEKS * DAYS;
+  const out = new Array<number>(n);
+  let h = 2166136261;
+  for (let i = 0; i < n; i++) {
+    h ^= seed.charCodeAt(i % seed.length) + i;
+    h = Math.imul(h, 16777619);
+    const week = Math.floor(i / DAYS);
+    const quiet = week < 6 || week > 46 ? 4 : 0;
+    const r = (h >>> 0) % (12 + quiet);
+    out[i] = r < 4 + quiet ? 0 : r < 8 ? 1 : r < 10 ? 2 : r < 12 ? 3 : 4;
+  }
+  return out;
+}
+
+const YEAR = yearFromSeed("ahmed");
 
 export function LandingClose() {
-  return (
-    <section className="px-5 pt-16 pb-[max(2.5rem,env(safe-area-inset-bottom))] md:px-10 lg:px-16 lg:pt-24">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:gap-16">
-        <div>
-          <p className="text-muted-foreground text-xs font-medium tracking-wide">
-            <span className="tabular-nums">05</span>
-            <span aria-hidden="true"> · </span>
-            The name
-          </p>
-          <h2 className="mt-3 max-w-[16ch] text-[2.1rem] leading-[1.12] font-semibold tracking-tight text-balance sm:text-4xl">
-            What you ship is what people{" "}
-            <span className="text-brand-content">see.</span>
-          </h2>
-          <p className="text-muted-foreground mt-4 max-w-[42ch] text-sm leading-relaxed text-pretty sm:text-base">
-            A Chelaa profile is contributions, badges and a board rank — derived
-            from the feed, never from a PDF.
-          </p>
-          <p className="text-muted-foreground/80 mt-5 font-mono text-[11px] tracking-wide">
-            post +5 · project +10 · answer +5 · accepted +20 · upvote +3
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-2">
-            <Button
-              as={Link}
-              href="/login?signup=1"
-              variant="brand"
-              size="lg"
-              shape="pill"
-            >
-              Join Chelaa
-              <AltArrowRightIcon size={16} />
-            </Button>
-            <Button
-              as="a"
-              href={`mailto:${CONTACT}`}
-              variant="ghost"
-              size="lg"
-              shape="pill"
-            >
-              <LetterIcon size={16} />
-              Hiring
-            </Button>
-          </div>
-        </div>
+  const root = useRef<HTMLElement>(null);
 
-        <div aria-hidden="true" className="min-w-0">
-          <div className="bg-muted/70 ring-border-surface-strong rounded-2xl p-1.5 ring-[0.5px]">
-            <div className="bg-background ring-border-surface-strong overflow-hidden rounded-xl ring-[0.5px]">
-              <div className="flex items-center gap-4 p-5">
-                <Avatar seed="ahmed" size="xl" className="size-14" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold tracking-tight">
-                    Ahmed
-                  </p>
-                  <p className="text-muted-foreground truncate text-xs">
-                    @ahmed
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <Badge variant="brand" className="text-[10px]">
-                      #1 Go
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
-                      Next.js
-                    </Badge>
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-brand-content text-lg font-semibold tabular-nums">
-                    #1
-                  </p>
-                  <p className="text-muted-foreground text-xs tabular-nums">
-                    {formatPoints(8420)} rep
-                  </p>
-                </div>
-              </div>
-              <p className="text-foreground/80 px-5 pb-5 text-sm text-pretty">
-                One binary. Open data for Tunisia. The feed is the CV.
+  useGSAP(
+    () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        return;
+      }
+      const numeral = root.current?.querySelector("[data-numeral]");
+      const year = root.current?.querySelector("[data-year]");
+      if (!numeral || !year) return;
+
+      gsap.from(numeral, {
+        y: 40,
+        duration: 1.1,
+        ease: "power3.out",
+        scrollTrigger: { trigger: root.current, start: "top 72%" },
+      });
+      gsap.from(year.children, {
+        autoAlpha: 0,
+        stagger: 0.003,
+        duration: 0.4,
+        ease: "power2.out",
+        scrollTrigger: { trigger: root.current, start: "top 64%" },
+      });
+    },
+    { scope: root },
+  );
+
+  return (
+    <section
+      ref={root}
+      className="flex min-h-dvh w-full min-w-0 flex-col lg:flex-row"
+    >
+      <div className="flex min-w-0 w-full shrink-0 flex-col justify-center px-5 pt-16 pb-8 md:px-8 lg:max-w-[34rem] lg:flex-1 lg:px-10 lg:py-20 xl:max-w-[38rem]">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide">
+          <span className="tabular-nums">05</span>
+          <span aria-hidden="true"> · </span>
+          The name
+        </p>
+        <h2 className="mt-3 max-w-[14ch] text-[2.1rem] leading-[1.08] font-semibold tracking-tight text-balance sm:text-4xl lg:text-[2.85rem]">
+          What you ship is what people{" "}
+          <span className="text-brand-content">see.</span>
+        </h2>
+        <p className="text-muted-foreground mt-4 max-w-[36ch] text-sm leading-relaxed text-pretty sm:text-base">
+          No PDF. The year is the proof — every cell a day you showed up.
+        </p>
+
+        <dl className="mt-8 grid max-w-[16rem] grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 font-mono text-[11px] tracking-wide">
+          {FORMULA.map((row) => (
+            <div key={row.what} className="contents">
+              <dt className="text-brand-content tabular-nums">{row.pts}</dt>
+              <dd className="text-muted-foreground">{row.what}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="mt-10 flex flex-wrap items-center gap-2">
+          <Button
+            as={Link}
+            href="/login?signup=1"
+            variant="brand"
+            size="lg"
+            shape="pill"
+          >
+            Join Chelaa
+            <AltArrowRightIcon size={16} />
+          </Button>
+          <Button
+            as="a"
+            href={`mailto:${CONTACT}`}
+            variant="ghost"
+            size="lg"
+            shape="pill"
+          >
+            <LetterIcon size={16} />
+            Hiring
+          </Button>
+        </div>
+        <p className="text-muted-foreground/70 mt-12 text-xs lg:mt-auto lg:pt-16">
+          Chelaa · Free for the people who contribute to it.
+          <span aria-hidden="true"> · </span>
+          <a href={`mailto:${CONTACT}`} className="hover:text-foreground">
+            {CONTACT}
+          </a>
+        </p>
+      </div>
+
+      <div className="flex min-h-0 min-w-0 flex-1 px-3 pb-3 lg:flex-[1.35] lg:p-0">
+        <div
+          aria-hidden="true"
+          className="bg-background ring-border-surface-strong relative flex min-h-[28rem] w-full min-w-0 flex-col overflow-hidden rounded-2xl ring-[0.5px] lg:min-h-0 lg:rounded-none lg:rounded-l-2xl"
+        >
+          <div className="relative min-h-[14rem] flex-[1.15]">
+            <div
+              className="absolute inset-0 bg-cover bg-no-repeat"
+              style={skyPosition("ahmed")}
+            />
+            <div className="from-background absolute inset-0 bg-gradient-to-t via-background/25 to-transparent" />
+            <span
+              data-numeral
+              className="text-foreground/15 pointer-events-none absolute right-0 bottom-[-0.28em] font-semibold tracking-tighter select-none"
+              style={{
+                fontSize: "min(48vw, 19rem)",
+                lineHeight: 0.75,
+              }}
+            >
+              1
+            </span>
+          </div>
+
+          <div className="relative flex flex-col px-5 pt-1 pb-6 md:px-8 md:pb-8">
+            <p className="text-muted-foreground text-xs">@ahmed</p>
+            <div className="mt-0.5 flex items-baseline justify-between gap-4">
+              <h3 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                Ahmed
+              </h3>
+              <p className="text-brand-content shrink-0 text-sm font-semibold tabular-nums">
+                {formatPoints(8420)}
               </p>
             </div>
-          </div>
+            <p className="text-muted-foreground mt-2 max-w-[36ch] text-sm text-pretty">
+              One binary. Open data for Tunisia. The feed is the CV.
+            </p>
 
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {STATS.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={stat.label}
-                  className="bg-muted/70 ring-border-surface-strong rounded-2xl p-1.5 ring-[0.5px]"
-                >
-                  <div className="bg-background ring-border-surface-strong rounded-xl p-3 ring-[0.5px]">
-                    <Icon size={14} className="text-brand-content" />
-                    <p className="mt-2 text-sm font-semibold tabular-nums">
-                      {formatPoints(stat.value)}
-                    </p>
-                    <p className="text-muted-foreground mt-0.5 truncate text-[10px]">
-                      {stat.label}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+            <div
+              data-year
+              className="mt-6 grid w-full min-w-0 gap-px"
+              style={{
+                gridTemplateColumns: `repeat(${WEEKS}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${DAYS}, minmax(0, 1fr))`,
+                gridAutoFlow: "column",
+              }}
+            >
+              {YEAR.map((level, i) => (
+                <span
+                  key={i}
+                  className={cn("aspect-square rounded-[1px]", LEVEL[level])}
+                />
+              ))}
+            </div>
+            <p className="text-muted-foreground mt-2 text-[11px] tabular-nums">
+              56 contributions · 842 votes · 12k views
+            </p>
 
-          <div className="mt-3">
-            <BadgeShelf badges={BADGES} />
+            <div className="mt-5 flex flex-wrap gap-1.5">
+              {STAMPS.map((stamp) => {
+                const Icon = stamp.Icon;
+                return (
+                  <span
+                    key={stamp.label}
+                    className="bg-foreground/[0.04] ring-border-surface-strong flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-[0.5px]"
+                  >
+                    <Icon size={12} className="text-brand-content" />
+                    {stamp.label}
+                  </span>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
-
-      <p className="text-muted-foreground/70 mx-auto mt-16 max-w-6xl text-xs">
-        Chelaa · Free for the people who contribute to it.
-        <span aria-hidden="true"> · </span>
-        <a href={`mailto:${CONTACT}`} className="hover:text-foreground">
-          {CONTACT}
-        </a>
-      </p>
     </section>
   );
 }

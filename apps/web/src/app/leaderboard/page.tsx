@@ -4,23 +4,20 @@ import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { LeaderboardPanel } from "@/components/dashboard/leaderboard-panel";
 import { getQueryClient } from "@/lib/get-query-client";
 import { queryKeys, boardParams } from "@/lib/keys";
-import { fetchBoard, fetchFeed, requireAuth } from "@/lib/api";
+import { fetchBoard, requireAuth } from "@/lib/api";
 
 // Data comes from the Go API at request time.
 export const dynamic = "force-dynamic";
 
 export default async function LeaderboardPage() {
   await requireAuth("/leaderboard");
-  // Prefetch the browser's default state + the feed (tag options).
+  // Prefetch the one all-time board used by both the list and Top 3 rail.
   const queryClient = getQueryClient();
   const initial = boardParams("all", "all");
-  await Promise.all([
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.leaderboard(initial),
-      queryFn: () => fetchBoard(initial),
-    }),
-    queryClient.prefetchQuery({ queryKey: queryKeys.feed, queryFn: fetchFeed }),
-  ]);
+  await queryClient.prefetchQuery({
+    queryKey: queryKeys.leaderboard(initial),
+    queryFn: () => fetchBoard(initial),
+  });
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>

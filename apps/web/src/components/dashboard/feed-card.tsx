@@ -65,7 +65,14 @@ function Stat({
  * in a row close enough in height that row-chunked virtualization measures
  * cleanly; the tallest card in a row still wins via measureElement.
  */
-export function FeedCard({ entry }: { entry: FeedEntry }) {
+export function FeedCard({
+  entry,
+  className,
+}: {
+  entry: FeedEntry;
+  /** Lets the virtual feed place a card in a bento cell. */
+  className?: string;
+}) {
   const kind = KIND[entry.kind];
   const KindIcon = kind.icon;
 
@@ -73,12 +80,13 @@ export function FeedCard({ entry }: { entry: FeedEntry }) {
     <Link
       href={`/post/${entry.id}`}
       className={cn(
-        // FIXED height, not h-full: cards in DIFFERENT grid rows must match
-        // too, and `h-full` only equalises cards within one row. A card with
-        // a thumbnail and one without now come out identical everywhere.
-        "group bg-card ring-border-surface-strong relative flex h-[26rem] flex-col rounded-2xl p-4",
+        // Cards fit their content. Their title, excerpt and media each have
+        // their own safe limit below, rather than clipping the whole flex
+        // card (which can cut a title in half).
+        "group bg-card ring-border-surface-strong relative flex self-start flex-col rounded-2xl p-4",
         "ring-[0.5px] shadow-sm shadow-black/[0.03] transition-shadow duration-150",
         "hover:shadow-md hover:shadow-black/[0.06]",
+        className,
       )}
     >
       <div className="flex items-center gap-2">
@@ -147,7 +155,7 @@ export function FeedCard({ entry }: { entry: FeedEntry }) {
        * bottom edge of every card.
        */}
       {entry.image ? (
-        <div className="ring-border-surface-strong relative mt-3 min-h-0 w-full flex-1 overflow-hidden rounded-xl ring-[0.5px]">
+        <div className="ring-border-surface-strong relative mt-3 aspect-video w-full shrink-0 overflow-hidden rounded-xl ring-[0.5px]">
           <MediaTrigger
             src={entry.image}
             label="View image"
@@ -171,7 +179,7 @@ export function FeedCard({ entry }: { entry: FeedEntry }) {
           "text-muted-foreground mt-3 text-xs leading-relaxed",
           entry.image
             ? "line-clamp-2 h-[3.25em] shrink-0"
-            : "line-clamp-[14] flex-1",
+            : "line-clamp-[8]",
         )}
       >
         {entry.excerpt}

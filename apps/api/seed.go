@@ -102,14 +102,21 @@ func seed(ctx context.Context, pool *pgxpool.Pool) error {
 			[]string{"Data", "Next.js"}, "nour", 97, 4100, false, true, 8640},
 	}
 
+	seedImages := map[int64]string{
+		2:  "/images/sfax-transit-cover.png",
+		4:  "/images/careerpath.webp",
+		5:  "/images/salary-survey-cover.png",
+		10: "/images/careerpath.webp",
+		11: "/images/hushstat.webp",
+	}
 	for _, p := range posts {
 		if _, err := tx.Exec(ctx, `
 			insert into posts (id, kind, title, excerpt, blocks, tags, author_id,
-				votes, views, solved, has_image, created_at)
+				votes, views, solved, has_image, image_url, created_at)
 			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-				now() - make_interval(mins => $12))`,
+				$12, now() - make_interval(mins => $13))`,
 			p.id, p.kind, p.title, p.excerpt, p.blocks, p.tags, ids[p.author],
-			p.votes, p.views, p.solved, p.hasImage, p.ageMin); err != nil {
+			p.votes, p.views, p.solved, p.hasImage, seedImages[p.id], p.ageMin); err != nil {
 			return fmt.Errorf("seed post %d: %w", p.id, err)
 		}
 	}

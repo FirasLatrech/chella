@@ -83,9 +83,12 @@ func (s *server) deletePost(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
+	// Admins may moderate any post; everyone else can only delete their own.
+	// This condition stays inside the DELETE so authorization and removal are
+	// one atomic database operation.
 	tag, err := s.db.Exec(r.Context(),
-		`delete from posts where id = $1 and author_id = $2`,
-		r.PathValue("id"), u.ID)
+		`delete from posts where id = $1 and (author_id = $2 or $3)`,
+		r.PathValue("id"), u.ID, u.IsAdmin)
 	if err != nil {
 		log.Printf("delete post: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})

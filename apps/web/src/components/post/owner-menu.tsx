@@ -21,12 +21,15 @@ export function OwnerMenu({
   onEdit,
   onDelete,
   deleting,
+  canEdit = true,
   what,
   className,
 }: {
   onEdit: () => void;
   onDelete: () => void;
   deleting?: boolean;
+  /** Admins may delete another user's post, but never edit it. */
+  canEdit?: boolean;
   /** What the confirmation names, e.g. "post" or "reply". */
   what: string;
   className?: string;
@@ -64,7 +67,7 @@ export function OwnerMenu({
               "origin-top-right duration-150 ease-out data-closed:scale-95 data-closed:opacity-0",
             )}
           >
-            <MenuItem>
+            {canEdit ? <MenuItem>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -79,7 +82,7 @@ export function OwnerMenu({
                 />
                 <span className="flex-1 text-left">Edit</span>
               </button>
-            </MenuItem>
+            </MenuItem> : null}
             <MenuItem>
               <button
                 onClick={(e) => {

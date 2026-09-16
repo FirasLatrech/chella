@@ -8,7 +8,7 @@ import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { RichEditor } from "@/components/ui/rich-editor";
 import { OwnerMenu } from "./owner-menu";
-import { useEntry } from "@/lib/queries";
+import { useEntry, useMe } from "@/lib/queries";
 import { invalidateEntryLists, removeEntryEverywhere } from "@/lib/cache";
 import { ApiError, deletePost, updatePost, uploadImage } from "@/lib/mutations";
 import { blocksToDoc } from "@/lib/blocks";
@@ -25,6 +25,7 @@ export function PostActions({ postId }: { postId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: entry } = useEntry(postId);
+  const { data: me } = useMe();
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -72,7 +73,9 @@ export function PostActions({ postId }: { postId: string }) {
     },
   });
 
-  if (!entry?.mine) return null;
+  const canEdit = !!entry?.mine;
+  const canDelete = canEdit || !!me?.isAdmin;
+  if (!entry || !canDelete) return null;
 
   function openEdit() {
     if (!entry) return;
@@ -112,6 +115,7 @@ export function PostActions({ postId }: { postId: string }) {
         onEdit={openEdit}
         onDelete={() => remove.mutate()}
         deleting={remove.isPending}
+        canEdit={canEdit}
       />
 
       {/* Frame-inside-tint, same as the edit-profile modal. */}

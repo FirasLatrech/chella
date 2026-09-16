@@ -96,7 +96,7 @@ export function MobileNav() {
                     >
                       <Avatar
                         seed={me.handle}
-                        src={profile?.avatar || undefined}
+                        src={me.avatar || undefined}
                         size="md"
                       />
                       <span className="min-w-0 flex-1">

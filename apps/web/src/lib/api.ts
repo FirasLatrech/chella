@@ -29,6 +29,8 @@ export interface Me {
   handle: string;
   name: string;
   emailVerified: boolean;
+  /** Uploaded photo; empty string when the user has none. */
+  avatar: string;
 }
 
 export async function fetchMe(): Promise<Me | null> {

@@ -195,6 +195,10 @@ export function EditProfileDialog() {
         queryClient.invalidateQueries({ queryKey: queryKeys.profile(handle) });
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.forYou });
+      // `me` carries the avatar that the header and composer draw. Without
+      // this the photo updates on the profile page but the header keeps the
+      // sky crop until the next poll — the same person, two faces, one screen.
+      queryClient.invalidateQueries({ queryKey: queryKeys.me });
       close();
       router.refresh();
     } catch (e) {

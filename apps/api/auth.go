@@ -47,6 +47,11 @@ type user struct {
 	Handle        string `json:"handle"`
 	Name          string `json:"name"`
 	EmailVerified bool   `json:"emailVerified"`
+	// Set by currentUser only. Without it the header and composer drew the
+	// generated sky crop while the profile page showed the real photo — the
+	// same person with two different faces on one screen. login/signup leave
+	// it empty; useMe refetches straight after either.
+	Avatar string `json:"avatar"`
 }
 
 // ensureDevPasswords gives seeded users a known password so the app is usable
@@ -120,10 +125,10 @@ func (s *server) currentUser(r *http.Request) *user {
 	}
 	var u user
 	err = s.db.QueryRow(r.Context(), `
-		select u.id, u.handle, u.name, u.email_verified
+		select u.id, u.handle, u.name, u.email_verified, u.avatar_url
 		from sessions s join users u on u.id = s.user_id
 		where s.token = $1 and s.expires_at > now()`, c.Value).
-		Scan(&u.ID, &u.Handle, &u.Name, &u.EmailVerified)
+		Scan(&u.ID, &u.Handle, &u.Name, &u.EmailVerified, &u.Avatar)
 	if err != nil {
 		return nil
 	}

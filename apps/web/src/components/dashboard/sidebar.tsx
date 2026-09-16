@@ -41,6 +41,18 @@ const COMMUNITY: NavItem[] = [
   { href: "/saved", label: "Saved", icon: BookmarkIcon },
 ];
 
+function navActive(pathname: string, href: string) {
+  if (href === "/") {
+    // Post detail is still feed browsing — keep the pill on Feed.
+    return pathname === "/" || pathname.startsWith("/post/");
+  }
+  if (href === "/admin") {
+    // Overview only; sub-pages have their own nav item.
+    return pathname === "/admin";
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 /*
  * The active pill is a single shared element rather than a style on each link.
  * `layoutId` makes Motion animate it between positions (FLIP), so switching
@@ -139,7 +151,7 @@ function NavGroup({
         <NavLink
           key={item.href}
           item={item}
-          active={pathname === item.href}
+          active={navActive(pathname, item.href)}
           collapsed={collapsed}
         />
       ))}

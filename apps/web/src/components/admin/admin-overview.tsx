@@ -8,7 +8,7 @@ import {
   UsersGroupRoundedIcon,
 } from "@solar-icons/react/bold-duotone";
 import { Card, CardBody } from "@/components/ui/card";
-import { useMe, usePendingPosts, usePriorityPosters, useSponsor } from "@/lib/queries";
+import { useAdminSponsors, useMe, usePendingPosts, usePriorityPosters } from "@/lib/queries";
 
 const tiles = [
   {
@@ -38,12 +38,12 @@ export function AdminOverview() {
   const { data: me } = useMe();
   const { data: pending = [] } = usePendingPosts(!!me?.isAdmin);
   const { data: posters = [] } = usePriorityPosters(!!me?.isAdmin);
-  const { data: sponsor } = useSponsor();
+  const { data: sponsors = [] } = useAdminSponsors(!!me?.isAdmin);
 
   const status = {
     review: pending.length === 0 ? "Queue clear" : `${pending.length} waiting`,
     access: `${posters.length} with access`,
-    sponsors: sponsor?.active ? "Custom sponsor live" : "2 sponsors live",
+    sponsors: `${sponsors.filter((sponsor) => sponsor.active).length} live`,
   };
 
   return (

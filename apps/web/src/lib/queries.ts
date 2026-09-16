@@ -289,6 +289,7 @@ export function usePriorityPosters(enabled: boolean) {
 }
 
 export interface Sponsor {
+  id: string;
   active: boolean;
   name: string;
   title: string;
@@ -296,8 +297,17 @@ export interface Sponsor {
   imageUrl: string;
 }
 
-export function useSponsor() {
-  return useQuery({ queryKey: queryKeys.sponsor, queryFn: () => get<Sponsor>("/api/sponsor") });
+export function useSponsors() {
+  return useQuery({ queryKey: queryKeys.sponsors, queryFn: () => get<Sponsor[]>("/api/sponsors") });
+}
+
+export function useAdminSponsors(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.adminSponsors,
+    queryFn: () => get<Sponsor[]>("/api/admin/sponsors"),
+    enabled,
+    refetchOnWindowFocus: true,
+  });
 }
 
 export interface SearchPerson {

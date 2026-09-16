@@ -136,10 +136,20 @@ export function setPriorityPosting(handle: string, enabled: boolean) {
   return post(`/api/admin/users/${encodeURIComponent(handle)}/priority`, { enabled });
 }
 
-export function updateSponsor(input: {
+export interface SponsorInput {
   active: boolean; name: string; title: string; href: string; imageUrl: string;
-}) {
-  return send("PUT", "/api/admin/sponsor", input);
+}
+
+export function createSponsor(input: SponsorInput) {
+  return post<SponsorInput & { id: string }>("/api/admin/sponsors", input);
+}
+
+export function updateSponsor(id: string, input: SponsorInput) {
+  return send<SponsorInput & { id: string }>("PUT", `/api/admin/sponsors/${id}`, input);
+}
+
+export function deleteSponsor(id: string) {
+  return send<void>("DELETE", `/api/admin/sponsors/${id}`);
 }
 
 /**

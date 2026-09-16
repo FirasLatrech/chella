@@ -24,7 +24,8 @@ export const queryKeys = {
   tags: ["tags"] as const,
   pendingPosts: ["admin", "pending-posts"] as const,
   priorityPosters: ["admin", "priority-posters"] as const,
-  sponsor: ["sponsor"] as const,
+  sponsors: ["sponsors"] as const,
+  adminSponsors: ["admin", "sponsors"] as const,
 };
 
 /** Params for a given board state — shared by page prefetch and client hook. */

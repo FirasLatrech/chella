@@ -5,7 +5,7 @@ import { motion, type PanInfo } from "motion/react";
 import { AltArrowRightIcon } from "@solar-icons/react/bold-duotone";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useSponsor } from "@/lib/queries";
+import { useSponsors } from "@/lib/queries";
 
 export interface AdSlide {
   id: string;
@@ -54,21 +54,22 @@ const FAN = [
 ] as const;
 
 export function AdSlot({ collapsed }: { collapsed: boolean }) {
-  const { data: sponsor } = useSponsor();
-  const slides = sponsor?.active
-    ? [{ id: "admin-sponsor", title: sponsor.title, sponsor: sponsor.name, href: sponsor.href, image: sponsor.imageUrl || undefined }]
-    : BUILT_IN_SPONSORS;
+  const { data: sponsors } = useSponsors();
+  const slides = sponsors === undefined
+    ? BUILT_IN_SPONSORS
+    : sponsors.map((sponsor) => ({ id: sponsor.id, title: sponsor.title, sponsor: sponsor.name, href: sponsor.href, image: sponsor.imageUrl || undefined }));
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
   const advance = useCallback(
-    (delta: number) =>
-      setIndex((i) => (i + delta + slides.length) % slides.length),
+    (delta: number) => {
+      if (slides.length > 0) setIndex((i) => (i + delta + slides.length) % slides.length);
+    },
     [slides.length],
   );
 
   useEffect(() => {
-    if (paused || collapsed) return;
+    if (paused || collapsed || slides.length === 0) return;
     // setTimeout rather than setInterval: the delay varies per card, and the
     // timer restarts from zero whenever `index` changes — so a manual swipe
     // gives the new card its full dwell time instead of inheriting a
@@ -89,6 +90,10 @@ export function AdSlot({ collapsed }: { collapsed: boolean }) {
 
   // Too narrow to read when collapsed — hidden rather than shown as a sliver.
   if (collapsed) return null;
+
+  if (slides.length === 0) {
+    return <Link href="/sponsor" className="text-muted-foreground hover:text-foreground block py-2 text-center text-xs">Become a sponsor</Link>;
+  }
 
   return (
     <div

@@ -12,12 +12,28 @@ export interface AdSlide {
   title: string;
   sponsor: string;
   href: string;
+  /** Sponsor artwork. Falls back to the sky image when absent. */
+  image?: string;
 }
 
 const SLIDES: AdSlide[] = [
   { id: "1", title: "Hire Tunisian engineers", sponsor: "Chelaa Jobs", href: "/jobs" },
   { id: "2", title: "Ship your side project", sponsor: "Chelaa Projects", href: "/" },
   { id: "3", title: "Climb the leaderboard", sponsor: "Chelaa", href: "/leaderboard" },
+  {
+    id: "4",
+    title: "Your complete career workspace",
+    sponsor: "CareerPath",
+    href: "https://careerpath.com",
+    image: "/images/careerpath.webp",
+  },
+  {
+    id: "5",
+    title: "Know who visits your site",
+    sponsor: "hushstat",
+    href: "https://hushstat.com",
+    image: "/images/hushstat.webp",
+  },
 ];
 
 const IMAGE = "/images/sky-background.webp";
@@ -171,9 +187,16 @@ function AdCard({
   slide: AdSlide;
   interactive: boolean;
 }) {
+  // A real sponsor links off-site: open in a new tab, and set rel so the
+  // destination can neither reach back through window.opener nor collect
+  // referrer credit as an endorsement.
+  const external = slide.href.startsWith("http");
   return (
     <Link
       href={slide.href}
+      {...(external
+        ? { target: "_blank", rel: "noopener noreferrer sponsored" }
+        : {})}
       tabIndex={interactive ? 0 : -1}
       aria-hidden={!interactive}
       draggable={false}
@@ -188,7 +211,7 @@ function AdCard({
     >
       <div className="ring-border-surface relative aspect-[16/9] w-full overflow-hidden rounded-xl ring-[0.5px]">
         <Image
-          src={IMAGE}
+          src={slide.image ?? IMAGE}
           alt=""
           fill
           sizes="216px"

@@ -77,6 +77,16 @@ func ensureDevPasswords(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
+// verifyDemoEmails keeps the local seed accounts ready to use. They are only
+// created when SEED_DEMO=1, so this can never verify accounts in production.
+func verifyDemoEmails(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `
+		update users
+		set email_verified = true
+		where email like '%@chelaa.tn' and not email_verified`)
+	return err
+}
+
 // purgeExpired trims dead sessions and reset tokens so the tables don't grow
 // without bound. Run on boot; a cron can take over later.
 func purgeExpired(ctx context.Context, pool *pgxpool.Pool) {

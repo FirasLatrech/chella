@@ -47,6 +47,9 @@ func main() {
 		if err := ensureDevPasswords(ctx, pool); err != nil {
 			log.Fatalf("dev passwords: %v", err)
 		}
+		if err := verifyDemoEmails(ctx, pool); err != nil {
+			log.Fatalf("verify demo emails: %v", err)
+		}
 	}
 	purgeExpired(ctx, pool)
 

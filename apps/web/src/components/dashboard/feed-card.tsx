@@ -109,12 +109,9 @@ export function FeedCard({
         </AuthorLink>
       </div>
 
-      {/* FIXED two lines, not a min-height: the grid chunks cards into rows
-          and every row takes its tallest card's height, so a title that runs
-          to three lines while its neighbours use one leaves a visible gap
-          beside them. Two lines at `leading-snug` (1.375) is exactly
-          2.75em — anything less clips the second line mid-glyph. */}
-      <h3 className="mt-3 line-clamp-2 h-[2.75em] text-[15px] leading-snug font-semibold tracking-tight">
+      {/* Clamp to two lines; masonry lanes tolerate variable card height, so
+          we don't reserve a fixed two-line box on short titles. */}
+      <h3 className="mt-3 line-clamp-2 text-[15px] leading-snug font-semibold tracking-tight">
         {entry.title}
         {entry.solved ? (
           <CheckCircleIcon
@@ -125,23 +122,27 @@ export function FeedCard({
         ) : null}
       </h3>
 
-      {/* Tags sit on one clipped line and the row is always present, so a
-          card with no tags doesn't pull the media slot up past its
-          neighbours'. */}
-      <div className="mt-2.5 flex h-[1.375rem] items-center gap-1.5 overflow-hidden">
-        {entry.tags.slice(0, 3).map((tag) => (
-          <Badge key={tag} variant="outline" className="text-[10px]">
-            {tag}
-          </Badge>
-        ))}
-        {entry.tags.length > 3 ? (
-          <Badge variant="outline" className="text-[10px]">
-            +{entry.tags.length - 3}
-          </Badge>
-        ) : null}
-      </div>
+      {entry.tags.length > 0 ? (
+        <div className="mt-2 flex items-center gap-1.5 overflow-hidden">
+          {entry.tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} variant="outline" className="text-[10px]">
+              {tag}
+            </Badge>
+          ))}
+          {entry.tags.length > 3 ? (
+            <Badge variant="outline" className="text-[10px]">
+              +{entry.tags.length - 3}
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
 
-      <span className="text-muted-foreground/70 mt-2 text-[11px] whitespace-nowrap">
+      <span
+        className={cn(
+          "text-muted-foreground/70 text-[11px] whitespace-nowrap",
+          entry.tags.length > 0 ? "mt-2" : "mt-1.5",
+        )}
+      >
         {entry.time}
       </span>
 

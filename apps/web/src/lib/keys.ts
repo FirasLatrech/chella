@@ -26,6 +26,8 @@ export const queryKeys = {
   priorityPosters: ["admin", "priority-posters"] as const,
   sponsors: ["sponsors"] as const,
   adminSponsors: ["admin", "sponsors"] as const,
+  botConfig: ["admin", "bot-config"] as const,
+  botSuggestions: (status: string) => ["admin", "bot-suggestions", status] as const,
 };
 
 /** Params for a given board state — shared by page prefetch and client hook. */

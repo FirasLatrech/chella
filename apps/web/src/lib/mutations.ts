@@ -136,6 +136,29 @@ export function setPriorityPosting(handle: string, enabled: boolean) {
   return post(`/api/admin/users/${encodeURIComponent(handle)}/priority`, { enabled });
 }
 
+export interface BotConfigInput {
+  enabled: boolean;
+  context: string;
+  runHour: number;
+  timezone: string;
+}
+
+export function updateBotConfig(input: BotConfigInput) {
+  return send<BotConfigInput & { lastRunAt?: string }>("PUT", "/api/admin/bot/config", input);
+}
+
+export function runBotNow() {
+  return post<{ status: string }>("/api/admin/bot/run");
+}
+
+export function acceptBotSuggestion(id: string) {
+  return post<{ status: string; postId: string }>(`/api/admin/bot/suggestions/${id}/accept`);
+}
+
+export function rejectBotSuggestion(id: string) {
+  return post<{ status: string }>(`/api/admin/bot/suggestions/${id}/reject`);
+}
+
 export interface SponsorInput {
   active: boolean; name: string; title: string; href: string; imageUrl: string;
 }

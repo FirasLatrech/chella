@@ -8,7 +8,7 @@ import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { RichEditor } from "@/components/ui/rich-editor";
 import { OwnerMenu } from "./owner-menu";
-import { useEntry, useMe } from "@/lib/queries";
+import { useEntry } from "@/lib/queries";
 import { invalidateEntryLists, removeEntryEverywhere } from "@/lib/cache";
 import { ApiError, deletePost, updatePost, uploadImage } from "@/lib/mutations";
 import { blocksToDoc } from "@/lib/blocks";
@@ -21,11 +21,18 @@ const MAX_TAGS = 3;
  * the composer, prefilled from the stored blocks, so a round-trip through
  * edit never flattens formatting.
  */
-export function PostActions({ postId }: { postId: string }) {
+export function PostActions({
+  postId,
+  isAdmin = false,
+}: {
+  postId: string;
+  /** Server-validated on the detail page, so admin controls don't wait for
+   * a browser cache refresh after a role change. */
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: entry } = useEntry(postId);
-  const { data: me } = useMe();
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -74,7 +81,7 @@ export function PostActions({ postId }: { postId: string }) {
   });
 
   const canEdit = !!entry?.mine;
-  const canDelete = canEdit || !!me?.isAdmin;
+  const canDelete = canEdit || isAdmin;
   if (!entry || !canDelete) return null;
 
   function openEdit() {

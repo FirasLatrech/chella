@@ -37,7 +37,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PostPage({ params }: PageProps<"/post/[id]">) {
   const { id } = await params;
-  await requireAuth(`/post/${id}`);
+  const me = await requireAuth(`/post/${id}`);
   const queryClient = getQueryClient();
   const entry = await queryClient.fetchQuery({
     queryKey: queryKeys.entry(id),
@@ -82,7 +82,7 @@ export default async function PostPage({ params }: PageProps<"/post/[id]">) {
                     <div className="flex shrink-0 items-center gap-1">
                       <CopyLinkButton id={entry.id} size={16} />
                       <SaveEntryButton postId={entry.id} />
-                      <PostActions postId={entry.id} />
+                      <PostActions postId={entry.id} isAdmin={me.isAdmin} />
                     </div>
                   </div>
 

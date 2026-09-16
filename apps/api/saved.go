@@ -12,7 +12,7 @@ import (
 
 // POST /api/posts/{id}/save — toggles the bookmark; returns {"saved": bool}.
 func (s *server) savePost(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}

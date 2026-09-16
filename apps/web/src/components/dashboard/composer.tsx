@@ -17,7 +17,12 @@ import { Avatar } from "@/components/ui/avatar";
 import { RichEditor } from "@/components/ui/rich-editor";
 import { Button } from "@/components/ui/button";
 import { playBounceSound, useInteractionSound } from "@/lib/sound";
-import { uploadImage, ApiError } from "@/lib/mutations";
+import {
+  uploadImage,
+  ApiError,
+  MAX_UPLOAD_BYTES,
+  ACCEPTED_IMAGE_TYPES,
+} from "@/lib/mutations";
 import { useMe } from "@/lib/queries";
 import { blocksToDoc } from "@/lib/blocks";
 import {
@@ -86,6 +91,10 @@ export function Composer({
   onPublish: (draft: ComposerDraft) => Promise<boolean>;
 }) {
   const [busy, setBusy] = useState(false);
+  // Publishing uploads the attachment first, and that step can fail for
+  // reasons the user can fix (file too big, wrong type, email not verified).
+  // Without this the throw was swallowed and Publish just did nothing.
+  const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [kind, setKind] = useState<FeedKind>("post");
   const [title, setTitle] = useState("");
@@ -230,6 +239,7 @@ export function Composer({
   async function publish() {
     if (!valid || busy) return;
     setBusy(true);
+    setError("");
     try {
       // Attachment goes to storage (R2) first; its public URL rides along
       // with the post.
@@ -263,6 +273,14 @@ export function Composer({
       playBounceSound();
       discard();
       setExpanded(false);
+    } catch (err) {
+      // Keep the attachment and the text — the error is usually fixable, and
+      // losing a written post because an image was 6 MB is the worse failure.
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not publish — check your connection and try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -440,6 +458,14 @@ export function Composer({
         </AnimatePresence>
       </div>
 
+      {/* Upload/publish failures land here. Sits on the tint, above the action
+          row, so it is next to the Publish button that triggered it. */}
+      {error ? (
+        <p role="alert" className="px-2 pt-2 text-xs text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      ) : null}
+
       {/* Action row on the tint. */}
       <div className="flex items-center gap-1 px-1 pt-1.5 pb-0.5">
         {KINDS.map((k) => {
@@ -475,11 +501,22 @@ export function Composer({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                // NOT image/*: that lets iOS hand over a raw HEIC photo, which
+                // the server rejects. Naming the types Safari can produce makes
+                // it transcode to JPEG on pick instead.
+                accept={ACCEPTED_IMAGE_TYPES}
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
+                    // Check here too, so a 10 MB photo fails instantly instead
+                    // of after uploading it only to be refused.
+                    if (file.size > MAX_UPLOAD_BYTES) {
+                      setError("That image is over 5 MB — pick a smaller one.");
+                      e.target.value = "";
+                      return;
+                    }
+                    setError("");
                     discardImage();
                     setImage(URL.createObjectURL(file));
                     setImageFile(file);

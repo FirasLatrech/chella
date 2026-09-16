@@ -15,6 +15,24 @@ func (s *server) requireUser(w http.ResponseWriter, r *http.Request) *user {
 	return u
 }
 
+// requireVerified is requireUser plus the email-verification check. The web app
+// redirects unverified users to /verify-email, but that is a UI convenience —
+// without this, a plain curl with a valid session skips verification entirely
+// and can post. Deliberately NOT folded into requireUser: verifyEmail and
+// resendVerification need a session that is still unverified to work at all.
+func (s *server) requireVerified(w http.ResponseWriter, r *http.Request) *user {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return nil
+	}
+	if !u.EmailVerified {
+		writeJSON(w, http.StatusForbidden,
+			map[string]string{"error": "verify your email first"})
+		return nil
+	}
+	return u
+}
+
 // maxPostTags bounds a post's tag list. Tags are compared with lower()/unnest
 // across the feed and the leaderboard, so both the count and each tag's length
 // are a query-cost multiplier.
@@ -48,7 +66,7 @@ func normalizeTags(raw []string) []string {
 
 // POST /api/posts — create a post/question/project.
 func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}
@@ -110,7 +128,7 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 // reply to a child re-parents to the child's root, and the thread stays a
 // conversation under one answer rather than a tree.
 func (s *server) createReply(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}
@@ -181,7 +199,7 @@ func (s *server) createReply(w http.ResponseWriter, r *http.Request) {
 // posts.votes stays the seeded base; totals are base + sum(post_votes),
 // so re-votes and retractions can never corrupt the aggregate.
 func (s *server) votePost(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}
@@ -234,7 +252,7 @@ func (s *server) votePost(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/replies/{id}/vote — {up: bool}; up-only, like the UI.
 func (s *server) voteReply(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}
@@ -272,7 +290,7 @@ func (s *server) voteReply(w http.ResponseWriter, r *http.Request) {
 // POST /api/replies/{id}/accept — question author only. Accepting a different
 // answer moves the mark; exactly one reply per post can be accepted.
 func (s *server) acceptReply(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}

@@ -125,7 +125,8 @@ styled with our tokens. Components live in `apps/web/src/components/ui/`.
 
 `apps/api` — package main, stdlib `net/http` + pgx. On boot it runs embedded
 SQL migrations (`migrations/*.sql` + a hand-rolled ~40-line runner, no
-external tooling) and an **idempotent seed** (no-op once `posts` has rows).
+external tooling) and an **idempotent seed** (no-op once `posts` has rows),
+which only runs when `SEED_DEMO=1`.
 
 - Schema: `users`, `posts` (blocks jsonb, tags text[], aggregate votes/views),
   `replies`. Per-user vote rows come with auth; response shapes won't change.
@@ -143,14 +144,24 @@ Data pages (`/`, `/projects`, `/post/[id]`) are
 
 **Auth**: bcrypt + session cookie (`chelaa_session`, httpOnly, Lax — 4100→4120
 is same-site so it flows on `credentials: "include"`). Endpoints:
-signup/login/logout/me. Seed users sign in with password `chelaa123`.
+signup/login/logout/me. Seed users sign in with password `chelaa123` — but
+**demo seeding is opt-in via `SEED_DEMO=1`** (set by `make api`, never in
+production). It used to run on every boot, which handed the live deployment
+five accounts whose password is published in this repo.
+**Mutations also require a VERIFIED email**: `requireVerified` in
+`mutations.go` wraps `requireUser` and 403s unverified sessions. It is NOT
+folded into `requireUser` — verify/resend need an unverified session to work.
 Mutations (create post/reply, post vote ±1, reply vote, accept answer) require
 a session; accept is verified server-side (question author only). Vote totals
 = seeded base column + live per-user vote rows, so re-votes can't corrupt
 aggregates. `myVote` appears in reads when authed.
 
 **Uploads**: Cloudflare R2 via S3 API (env `R2_*` in the gitignored `.env`;
-falls back to local disk when unset). Content-type is sniffed server-side;
+falls back to local disk when unset). The stored URL is ABSOLUTE and kept
+forever, so the disk fallback bakes its host in: without `R2_*` or
+`PUBLIC_API_URL` it writes `http://localhost:4120/...`, which no browser can
+load. That shipped to prod once and broke avatars. `newStorage` now refuses
+to boot when `APP_URL` is a real domain and neither is set. Content-type is sniffed server-side;
 `createPost.imageUrl` must come from our own uploader. **Notifications** are
 real events (reply/upvote/accept, never self, no re-vote duplicates), polled
 by the panel every 30s. **Views are unique per user** (`post_views` rows; the

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,6 +93,17 @@ func (d *diskStorage) Save(_ context.Context, name, _ string, data []byte) (stri
 
 func (d *diskStorage) PublicBase() string { return d.public + "/uploads/" }
 
+// isLocalURL reports whether a URL points at this machine, i.e. it is a dev
+// value rather than a real deployment.
+func isLocalURL(raw string) bool {
+	u, err := neturl.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == ""
+}
+
 // newStorage picks R2 when fully configured, disk otherwise.
 func newStorage() storage {
 	account := os.Getenv("R2_ACCOUNT_ID")
@@ -120,8 +132,24 @@ func newStorage() storage {
 	if dir == "" {
 		dir = "./uploads"
 	}
+	// The stored URL is absolute and persisted forever, so the host baked in
+	// here must be the host browsers actually reach. Defaulting to localhost
+	// is fine in dev and silently corrupts every upload in production — an
+	// avatar saved as http://localhost:4120/... can never load. Refuse to
+	// start instead: either configure R2, or say what the public host is.
 	base := os.Getenv("PUBLIC_API_URL")
 	if base == "" {
+		// Treat "the app is reachable on a real domain" as the prod signal.
+		// COOKIE_SECURE/APP_URL are not usable here: docker-compose.prod.yml
+		// gives APP_URL a localhost default, so keying on it merely being set
+		// would refuse to boot every dev-shaped compose run too.
+		if appURL := os.Getenv("APP_URL"); appURL != "" && !isLocalURL(appURL) {
+			log.Fatalf("uploads: APP_URL is %s but R2 is not configured and "+
+				"PUBLIC_API_URL is unset — uploads would be saved as "+
+				"http://localhost URLs that no browser can load. Set the R2_* "+
+				"vars (recommended) or PUBLIC_API_URL to this API's public base.",
+				appURL)
+		}
 		base = "http://localhost:" + env("PORT", "4120")
 	}
 	log.Printf("uploads: R2 not configured, using local disk %q", dir)
@@ -130,7 +158,7 @@ func newStorage() storage {
 
 // POST /api/uploads — multipart field "file". Returns {"url": "<public url>"}.
 func (s *server) upload(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}

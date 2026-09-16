@@ -34,14 +34,19 @@ func main() {
 	if err := migrate(ctx, pool); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
-	if err := seed(ctx, pool); err != nil {
-		log.Fatalf("seed: %v", err)
-	}
-	if err := seedJobs(ctx, pool); err != nil {
-		log.Fatalf("seed jobs: %v", err)
-	}
-	if err := ensureDevPasswords(ctx, pool); err != nil {
-		log.Fatalf("dev passwords: %v", err)
+	// Demo content and the shared dev password are OPT-IN. They used to run on
+	// every boot, which handed a real deployment five accounts whose password
+	// is published in this repo. Off unless SEED_DEMO=1 (dev only).
+	if os.Getenv("SEED_DEMO") == "1" {
+		if err := seed(ctx, pool); err != nil {
+			log.Fatalf("seed: %v", err)
+		}
+		if err := seedJobs(ctx, pool); err != nil {
+			log.Fatalf("seed jobs: %v", err)
+		}
+		if err := ensureDevPasswords(ctx, pool); err != nil {
+			log.Fatalf("dev passwords: %v", err)
+		}
 	}
 	purgeExpired(ctx, pool)
 

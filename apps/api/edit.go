@@ -22,7 +22,7 @@ import (
 
 // PATCH /api/posts/{id} — edit title, body and tags.
 func (s *server) updatePost(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}
@@ -67,7 +67,7 @@ func (s *server) updatePost(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/posts/{id}
 func (s *server) deletePost(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func (s *server) deletePost(w http.ResponseWriter, r *http.Request) {
 
 // PATCH /api/replies/{id} — edit your own reply.
 func (s *server) updateReply(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}
@@ -125,7 +125,7 @@ func (s *server) updateReply(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/replies/{id}
 func (s *server) deleteReply(w http.ResponseWriter, r *http.Request) {
-	u := s.requireUser(w, r)
+	u := s.requireVerified(w, r)
 	if u == nil {
 		return
 	}

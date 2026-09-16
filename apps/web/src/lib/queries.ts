@@ -169,6 +169,7 @@ export interface BoardEntry {
   rank: number;
   handle: string;
   name: string;
+  avatar?: string;
   tags: string[];
   reputation: number;
   points: number;
@@ -305,6 +306,44 @@ export function useAdminSponsors(enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.adminSponsors,
     queryFn: () => get<Sponsor[]>("/api/admin/sponsors"),
+    enabled,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export interface BotConfig {
+  enabled: boolean;
+  context: string;
+  runHour: number;
+  timezone: string;
+  lastRunAt?: string;
+}
+
+export function useBotConfig(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.botConfig,
+    queryFn: () => get<BotConfig>("/api/admin/bot/config"),
+    enabled,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export interface BotSuggestion {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  tags: string[];
+  rationale: string;
+  status: string;
+  time: string;
+  postId?: string;
+}
+
+export function useBotSuggestions(enabled: boolean, status = "pending") {
+  return useQuery({
+    queryKey: queryKeys.botSuggestions(status),
+    queryFn: () => get<BotSuggestion[]>(`/api/admin/bot/suggestions?status=${status}`),
     enabled,
     refetchOnWindowFocus: true,
   });

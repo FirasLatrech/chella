@@ -151,7 +151,7 @@ func scanFeedItems(rows pgx.Rows) ([]feedItem, error) {
 func (s *server) listPosts(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	args := []any{s.meID(r)}
-	where := "p.status = 'approved'"
+	where := " where p.status = 'approved'"
 
 	addWhere := func(clause string) {
 		where += " and " + clause

@@ -41,7 +41,7 @@ export function LeaderboardList({
         animate={{ opacity: 1 }}
         transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
       >
-        {podium.length === 3 ? <LeaderboardPodium entries={podium} /> : null}
+      {podium.length > 0 ? <LeaderboardPodium entries={podium} /> : null}
 
         <ul className="flex flex-col gap-0.5">
           {rest.map((entry) => (

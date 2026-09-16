@@ -10,8 +10,11 @@ db:
 db-down:
 	docker compose down
 
+# SEED_DEMO=1 is set here, not in the API's defaults: demo users share a
+# password published in this repo, so a real deployment must never get them
+# just by starting the binary. `make api` is the dev entry point, so it opts in.
 api:
-	cd apps/api && go run .
+	cd apps/api && SEED_DEMO=1 go run .
 
 web:
 	pnpm --filter web dev

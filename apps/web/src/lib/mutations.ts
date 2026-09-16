@@ -128,6 +128,16 @@ export function createPost(input: {
   return post<{ id: string }>("/api/posts", input);
 }
 
+/**
+ * Upload limits, mirrored from the server (`maxUploadBytes` and
+ * `allowedImageTypes` in apps/api/uploads.go). Checking client-side is a
+ * convenience — the server still sniffs the real content type and enforces
+ * the size, because a file input proves nothing.
+ */
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const ACCEPTED_IMAGE_TYPES =
+  "image/png,image/jpeg,image/webp,image/gif";
+
 /** Upload a file (image or PDF, ≤5 MB); returns its public URL. */
 export async function uploadImage(file: File): Promise<string> {
   const form = new FormData();

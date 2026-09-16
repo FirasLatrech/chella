@@ -26,6 +26,8 @@ import {
   ApiError,
   updateProfile,
   uploadFile,
+  ACCEPTED_IMAGE_TYPES,
+  MAX_UPLOAD_BYTES,
   type ProfileDetailsInput,
 } from "@/lib/mutations";
 import { queryKeys } from "@/lib/keys";
@@ -144,6 +146,11 @@ export function EditProfileDialog() {
 
   async function pickCv(file: File | undefined) {
     if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError("That file is over 5 MB — pick a smaller one.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setError("");
     setUploading(true);
     try {
@@ -159,6 +166,11 @@ export function EditProfileDialog() {
 
   async function pickAvatar(file: File | undefined) {
     if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError("That image is over 5 MB — pick a smaller one.");
+      if (avatarRef.current) avatarRef.current.value = "";
+      return;
+    }
     setError("");
     setAvatarUploading(true);
     try {
@@ -313,7 +325,7 @@ export function EditProfileDialog() {
                 <input
                   ref={avatarRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  accept={ACCEPTED_IMAGE_TYPES}
                   className="hidden"
                   onChange={(e) => pickAvatar(e.target.files?.[0])}
                 />

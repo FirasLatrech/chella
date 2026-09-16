@@ -57,6 +57,9 @@ services:
       R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-Chelaa <noreply@chelaa.tech>}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      ADMIN_HANDLE: ${ADMIN_HANDLE:-}
     ports:
       # Bound to loopback: nginx terminates TLS and proxies to it, so the
       # container port must not be reachable from the internet directly.

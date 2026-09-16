@@ -3,12 +3,19 @@
 import Link from "next/link";
 import {
   AltArrowRightIcon,
+  MagicWandIcon,
   CheckCircleIcon,
   SpeakerIcon,
   UsersGroupRoundedIcon,
 } from "@solar-icons/react/bold-duotone";
 import { Card, CardBody } from "@/components/ui/card";
-import { useAdminSponsors, useMe, usePendingPosts, usePriorityPosters } from "@/lib/queries";
+import {
+  useAdminSponsors,
+  useBotSuggestions,
+  useMe,
+  usePendingPosts,
+  usePriorityPosters,
+} from "@/lib/queries";
 
 const tiles = [
   {
@@ -32,6 +39,13 @@ const tiles = [
     icon: SpeakerIcon,
     value: "sponsors",
   },
+  {
+    href: "/admin/bot",
+    title: "Bot posts",
+    description: "Daily AI drafts from Chelaa Bot — you approve before publish.",
+    icon: MagicWandIcon,
+    value: "bot",
+  },
 ] as const;
 
 export function AdminOverview() {
@@ -39,11 +53,13 @@ export function AdminOverview() {
   const { data: pending = [] } = usePendingPosts(!!me?.isAdmin);
   const { data: posters = [] } = usePriorityPosters(!!me?.isAdmin);
   const { data: sponsors = [] } = useAdminSponsors(!!me?.isAdmin);
+  const { data: botSuggestions = [] } = useBotSuggestions(!!me?.isAdmin, "pending");
 
   const status = {
     review: pending.length === 0 ? "Queue clear" : `${pending.length} waiting`,
     access: `${posters.length} with access`,
     sponsors: `${sponsors.filter((sponsor) => sponsor.active).length} live`,
+    bot: botSuggestions.length === 0 ? "No drafts" : `${botSuggestions.length} to review`,
   };
 
   return (
@@ -55,7 +71,7 @@ export function AdminOverview() {
             Each admin tool has its own focused page.
           </p>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {tiles.map((tile) => {
             const Icon = tile.icon;
             return (

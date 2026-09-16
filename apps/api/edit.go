@@ -32,6 +32,9 @@ func (s *server) updatePost(w http.ResponseWriter, r *http.Request) {
 		Body   string   `json:"body"`
 		Blocks []block  `json:"blocks"`
 		Tags   []string `json:"tags"`
+		// Nil means keep the current image; a supplied URL must be one our
+		// uploader created, exactly like a new post.
+		ImageURL *string `json:"imageUrl"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
@@ -44,15 +47,24 @@ func (s *server) updatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.Tags = normalizeTags(in.Tags)
+	if in.ImageURL != nil {
+		*in.ImageURL = strings.TrimSpace(*in.ImageURL)
+		if *in.ImageURL == "" || !s.validStoredImage(*in.ImageURL) {
+			writeJSON(w, http.StatusBadRequest,
+				map[string]string{"error": "image must come from the upload endpoint"})
+			return
+		}
+	}
 
 	blocks, bodyText := buildBlocks(in.Blocks, in.Body)
 	excerpt := excerptFrom(bodyText, in.Title)
 
 	tag, err := s.db.Exec(r.Context(), `
 		update posts set title = $3, excerpt = $4, blocks = $5, tags = $6,
+		  image_url = coalesce($7, image_url),
 		  edited_at = now()
 		where id = $1 and author_id = $2`,
-		r.PathValue("id"), u.ID, in.Title, excerpt, blocks, in.Tags)
+		r.PathValue("id"), u.ID, in.Title, excerpt, blocks, in.Tags, in.ImageURL)
 	if err != nil {
 		log.Printf("update post: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})

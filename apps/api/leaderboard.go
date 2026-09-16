@@ -30,7 +30,7 @@ const leaderboardQuery = `
 with filtered_posts as (
 	select p.id, p.author_id, p.kind, p.created_at, p.votes
 	from posts p
-	where ($2 = '' or exists (
+	where p.status = 'approved' and ($2 = '' or exists (
 		select 1 from unnest(p.tags) t where lower(t) = lower($2)))
 ),
 post_creation as (

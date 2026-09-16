@@ -111,16 +111,20 @@ func (s *server) createPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var id int64
+	status := "pending"
+	if u.IsAdmin || u.PriorityPosting {
+		status = "approved"
+	}
 	err := s.db.QueryRow(r.Context(), `
-		insert into posts (kind, title, excerpt, blocks, tags, author_id, image_url)
-		values ($1, $2, $3, $4, $5, $6, $7) returning id`,
-		in.Kind, in.Title, excerpt, blocks, in.Tags, u.ID, imageURL).Scan(&id)
+		insert into posts (kind, title, excerpt, blocks, tags, author_id, image_url, status)
+		values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
+		in.Kind, in.Title, excerpt, blocks, in.Tags, u.ID, imageURL, status).Scan(&id)
 	if err != nil {
 		log.Printf("create post: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]string{"id": fmt.Sprint(id)})
+	writeJSON(w, http.StatusCreated, map[string]string{"id": fmt.Sprint(id), "status": status})
 }
 
 // POST /api/posts/{id}/replies — answer or comment. With `parentId` it is a

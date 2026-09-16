@@ -31,6 +31,8 @@ export interface Me {
   emailVerified: boolean;
   /** Uploaded photo; empty string when the user has none. */
   avatar: string;
+  isAdmin: boolean;
+  priorityPosting: boolean;
 }
 
 export async function fetchMe(): Promise<Me | null> {

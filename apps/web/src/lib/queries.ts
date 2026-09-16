@@ -254,6 +254,36 @@ export function useMe() {
   });
 }
 
+export interface PendingPost {
+  id: string;
+  title: string;
+  kind: string;
+  author: string;
+  excerpt: string;
+  time: string;
+}
+
+export function usePendingPosts(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.pendingPosts,
+    queryFn: () => get<PendingPost[]>("/api/admin/posts/pending"),
+    enabled,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export interface Sponsor {
+  active: boolean;
+  name: string;
+  title: string;
+  href: string;
+  imageUrl: string;
+}
+
+export function useSponsor() {
+  return useQuery({ queryKey: queryKeys.sponsor, queryFn: () => get<Sponsor>("/api/sponsor") });
+}
+
 export interface SearchPerson {
   handle: string;
   name: string;

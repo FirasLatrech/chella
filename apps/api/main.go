@@ -34,6 +34,7 @@ func main() {
 	if err := migrate(ctx, pool); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
+	bootstrapAdmin(ctx, pool)
 	// Demo content and the shared dev password are OPT-IN. They used to run on
 	// every boot, which handed a real deployment five accounts whose password
 	// is published in this repo. Off unless SEED_DEMO=1 (dev only).
@@ -62,6 +63,12 @@ func main() {
 	mux.HandleFunc("GET /api/posts/counts", s.postCounts)
 	mux.HandleFunc("GET /api/posts/{id}", s.getPost)
 	mux.HandleFunc("POST /api/posts", s.createPost)
+	mux.HandleFunc("GET /api/admin/posts/pending", s.listPendingPosts)
+	mux.HandleFunc("POST /api/admin/posts/{id}/approve", s.approvePost)
+	mux.HandleFunc("POST /api/admin/posts/{id}/reject", s.rejectPost)
+	mux.HandleFunc("POST /api/admin/users/{handle}/priority", s.setPriorityPosting)
+	mux.HandleFunc("GET /api/sponsor", s.getSponsor)
+	mux.HandleFunc("PUT /api/admin/sponsor", s.updateSponsor)
 	mux.HandleFunc("POST /api/posts/{id}/replies", s.createReply)
 	mux.HandleFunc("POST /api/posts/{id}/vote", s.votePost)
 	mux.HandleFunc("PATCH /api/posts/{id}", s.updatePost)

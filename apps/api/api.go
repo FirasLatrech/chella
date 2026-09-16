@@ -151,14 +151,10 @@ func scanFeedItems(rows pgx.Rows) ([]feedItem, error) {
 func (s *server) listPosts(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	args := []any{s.meID(r)}
-	where := ""
+	where := "p.status = 'approved'"
 
 	addWhere := func(clause string) {
-		if where == "" {
-			where = " where " + clause
-		} else {
-			where += " and " + clause
-		}
+		where += " and " + clause
 	}
 
 	if kind := params.Get("kind"); kind == "question" || kind == "project" || kind == "post" {
@@ -321,7 +317,7 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 		       u.avatar_url
 		from posts p
 		join users u on u.id = p.author_id
-		where p.id = $1`, id, meID).
+		where p.id = $1 and p.status = 'approved'`, id, meID).
 		Scan(&pid, &entry.Kind, &entry.Title, &entry.Excerpt, &entry.Author,
 			&createdAt, &entry.Tags, &entry.Votes, &entry.Views, &entry.Solved,
 			&entry.HasImage, &entry.Image, &entry.Blocks, &entry.Replies,
@@ -390,7 +386,7 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 // Registered ahead of /api/posts/{id}; Go's mux prefers the literal segment.
 func (s *server) postCounts(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.Query(r.Context(),
-		`select kind::text, count(*) from posts group by kind`)
+		`select kind::text, count(*) from posts where status = 'approved' group by kind`)
 	if err != nil {
 		log.Printf("post counts: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})

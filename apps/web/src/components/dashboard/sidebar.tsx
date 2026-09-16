@@ -9,6 +9,7 @@ import {
   RankingIcon,
   BookmarkIcon,
   SidebarMinimalisticIcon,
+  ShieldCheckIcon,
 } from "@solar-icons/react/bold-duotone";
 import { useState, type ComponentType } from "react";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { useInteractionSound } from "@/lib/sound";
 import { AdSlot } from "./ad-slot";
+import { useMe } from "@/lib/queries";
 
 interface NavItem {
   href: string;
@@ -150,6 +152,7 @@ export function Sidebar({
   variant?: "fixed" | "drawer";
 } = {}) {
   const pathname = usePathname();
+  const { data: me } = useMe();
   const [collapsedState, setCollapsed] = useState(false);
   const isDrawer = variant === "drawer";
   const collapsed = isDrawer ? false : collapsedState;
@@ -226,6 +229,14 @@ export function Sidebar({
         pathname={pathname}
         collapsed={collapsed}
       />
+      {me?.isAdmin ? (
+        <NavGroup
+          label="Manage"
+          items={[{ href: "/admin", label: "Admin", icon: ShieldCheckIcon }]}
+          pathname={pathname}
+          collapsed={collapsed}
+        />
+      ) : null}
       <NavGroup
         label="Community"
         items={COMMUNITY}

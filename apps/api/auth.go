@@ -51,7 +51,21 @@ type user struct {
 	// generated sky crop while the profile page showed the real photo — the
 	// same person with two different faces on one screen. login/signup leave
 	// it empty; useMe refetches straight after either.
-	Avatar string `json:"avatar"`
+	Avatar          string `json:"avatar"`
+	IsAdmin         bool   `json:"isAdmin"`
+	PriorityPosting bool   `json:"priorityPosting"`
+}
+
+// bootstrapAdmin lets the first trusted operator be set without a public
+// "make me admin" endpoint. Set ADMIN_HANDLE once in the API environment.
+func bootstrapAdmin(ctx context.Context, pool *pgxpool.Pool) {
+	handle := strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_HANDLE")))
+	if handle == "" {
+		return
+	}
+	if _, err := pool.Exec(ctx, `update users set is_admin = true, priority_posting = true where handle = $1`, handle); err != nil {
+		log.Printf("bootstrap admin: %v", err)
+	}
 }
 
 // ensureDevPasswords gives seeded users a known password so the app is usable
@@ -135,10 +149,10 @@ func (s *server) currentUser(r *http.Request) *user {
 	}
 	var u user
 	err = s.db.QueryRow(r.Context(), `
-		select u.id, u.handle, u.name, u.email_verified, u.avatar_url
+		select u.id, u.handle, u.name, u.email_verified, u.avatar_url, u.is_admin, u.priority_posting
 		from sessions s join users u on u.id = s.user_id
 		where s.token = $1 and s.expires_at > now()`, c.Value).
-		Scan(&u.ID, &u.Handle, &u.Name, &u.EmailVerified, &u.Avatar)
+		Scan(&u.ID, &u.Handle, &u.Name, &u.EmailVerified, &u.Avatar, &u.IsAdmin, &u.PriorityPosting)
 	if err != nil {
 		return nil
 	}

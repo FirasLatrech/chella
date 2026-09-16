@@ -49,6 +49,7 @@ func (s *server) listSaved(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.db.Query(r.Context(), listQueryBase+`
 		join saved_posts sp on sp.post_id = p.id and sp.user_id = $1
+		where p.status = 'approved'
 		order by sp.created_at desc`, u.ID)
 	if err != nil {
 		log.Printf("list saved: %v", err)

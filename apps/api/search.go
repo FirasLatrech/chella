@@ -48,7 +48,7 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 
 	// Posts — title matches rank above body matches.
 	rows, err := s.db.Query(r.Context(), listQueryBase+`
-		where p.title ilike $2 or p.excerpt ilike $2
+		where p.status = 'approved' and (p.title ilike $2 or p.excerpt ilike $2)
 		order by (case when p.title ilike $3 then 0
 		               when p.title ilike $2 then 1 else 2 end),
 		         p.created_at desc

@@ -87,14 +87,15 @@ const AUTOSAVE_MS = 400;
 export function Composer({
   onPublish,
 }: {
-  /** Returns true when the post was created (false e.g. redirected to login). */
-  onPublish: (draft: ComposerDraft) => Promise<boolean>;
+  /** Pending posts need review; direct posts are published immediately. */
+  onPublish: (draft: ComposerDraft) => Promise<"pending" | "published" | false>;
 }) {
   const [busy, setBusy] = useState(false);
   // Publishing uploads the attachment first, and that step can fail for
   // reasons the user can fix (file too big, wrong type, email not verified).
   // Without this the throw was swallowed and Publish just did nothing.
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [kind, setKind] = useState<FeedKind>("post");
   const [title, setTitle] = useState("");
@@ -255,7 +256,7 @@ export function Composer({
           throw err;
         }
       }
-      const ok = await onPublish({
+      const outcome = await onPublish({
         kind,
         title: title.trim(),
         body: body.trim(),
@@ -263,7 +264,7 @@ export function Composer({
         tags,
         imageUrl,
       });
-      if (!ok) {
+      if (!outcome) {
         // FeedSection already sent us to login; keep the writing for the
         // way back.
         if (handle) saveDraft(handle, { kind, title, body, blocks, tags });
@@ -273,6 +274,7 @@ export function Composer({
       playBounceSound();
       discard();
       setExpanded(false);
+      if (outcome === "pending") setNotice("Sent for admin review. You will see it after approval.");
     } catch (err) {
       // Keep the attachment and the text — the error is usually fixable, and
       // losing a written post because an image was 6 MB is the worse failure.
@@ -350,6 +352,9 @@ export function Composer({
             </button>
           )}
         </div>
+        {notice && !expanded ? (
+          <p className="text-muted-foreground px-3 pb-2 text-xs">{notice}</p>
+        ) : null}
 
         <AnimatePresence initial={false}>
           {expanded ? (

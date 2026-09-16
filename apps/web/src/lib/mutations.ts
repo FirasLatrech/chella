@@ -125,7 +125,21 @@ export function createPost(input: {
   tags: string[];
   imageUrl?: string;
 }) {
-  return post<{ id: string }>("/api/posts", input);
+  return post<{ id: string; status: "pending" | "approved" }>("/api/posts", input);
+}
+
+export function reviewPost(id: string, action: "approve" | "reject") {
+  return post(`/api/admin/posts/${id}/${action}`);
+}
+
+export function setPriorityPosting(handle: string, enabled: boolean) {
+  return post(`/api/admin/users/${encodeURIComponent(handle)}/priority`, { enabled });
+}
+
+export function updateSponsor(input: {
+  active: boolean; name: string; title: string; href: string; imageUrl: string;
+}) {
+  return send("PUT", "/api/admin/sponsor", input);
 }
 
 /**
@@ -191,7 +205,7 @@ export function voteReply(replyId: string, up: boolean) {
 
 export function updatePost(
   id: string,
-  input: { title: string; body?: string; blocks?: Block[]; tags: string[] },
+  input: { title: string; body?: string; blocks?: Block[]; tags: string[]; imageUrl?: string },
 ) {
   return send("PATCH", `/api/posts/${id}`, input);
 }

@@ -41,8 +41,9 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
   }, []);
 
   async function publish(draft: ComposerDraft) {
+    let result: { status: "pending" | "approved" };
     try {
-      await createPost(draft);
+      result = await createPost(draft);
       // Central helper: feed, infinite pages, saved, "for you" and the tab
       // counts all move when a post is published.
       await invalidateEntryLists(queryClient);
@@ -55,7 +56,7 @@ export function FeedSection({ rail }: { rail?: ReactNode }) {
       }
       throw err;
     }
-    return true;
+    return result.status === "pending" ? "pending" : "published";
   }
 
   return (

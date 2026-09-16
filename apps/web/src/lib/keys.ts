@@ -22,6 +22,8 @@ export const queryKeys = {
   forYou: ["for-you"] as const,
   /** Tags that exist on real posts — backs the interest picker. */
   tags: ["tags"] as const,
+  pendingPosts: ["admin", "pending-posts"] as const,
+  sponsor: ["sponsor"] as const,
 };
 
 /** Params for a given board state — shared by page prefetch and client hook. */

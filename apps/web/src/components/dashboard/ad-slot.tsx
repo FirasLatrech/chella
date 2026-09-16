@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { motion, type PanInfo } from "motion/react";
 import { AltArrowRightIcon } from "@solar-icons/react/bold-duotone";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useSponsor } from "@/lib/queries";
 
 export interface AdSlide {
   id: string;
@@ -54,13 +54,17 @@ const FAN = [
 ] as const;
 
 export function AdSlot({ collapsed }: { collapsed: boolean }) {
+  const { data: sponsor } = useSponsor();
+  const slides = sponsor?.active
+    ? [{ id: "admin-sponsor", title: sponsor.title, sponsor: sponsor.name, href: sponsor.href, image: sponsor.imageUrl || undefined }]
+    : SLIDES;
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
   const advance = useCallback(
     (delta: number) =>
-      setIndex((i) => (i + delta + SLIDES.length) % SLIDES.length),
-    [],
+      setIndex((i) => (i + delta + slides.length) % slides.length),
+    [slides.length],
   );
 
   useEffect(() => {
@@ -69,10 +73,10 @@ export function AdSlot({ collapsed }: { collapsed: boolean }) {
     // timer restarts from zero whenever `index` changes — so a manual swipe
     // gives the new card its full dwell time instead of inheriting a
     // part-elapsed tick.
-    const delay = index === SLIDES.length - 1 ? LAST_INTERVAL : INTERVAL;
+    const delay = index === slides.length - 1 ? LAST_INTERVAL : INTERVAL;
     const id = setTimeout(() => advance(1), delay);
     return () => clearTimeout(id);
-  }, [paused, collapsed, advance, index]);
+  }, [paused, collapsed, advance, index, slides.length]);
 
   const onDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
@@ -99,7 +103,7 @@ export function AdSlot({ collapsed }: { collapsed: boolean }) {
        */}
       <div className="relative h-[150px] select-none pt-7">
         {[2, 1, 0].map((depth) => {
-          const slide = SLIDES[(index + depth) % SLIDES.length];
+          const slide = slides[(index + depth) % slides.length];
           const isFront = depth === 0;
           const fan = FAN[depth];
 
@@ -136,7 +140,7 @@ export function AdSlot({ collapsed }: { collapsed: boolean }) {
 
       {/* Progress dots double as controls. */}
       <div className="flex items-center justify-center gap-1">
-        {SLIDES.map((s, i) => (
+        {slides.map((s, i) => (
           <button
             key={s.id}
             onClick={() => setIndex(i)}
@@ -207,14 +211,14 @@ function AdCard({
       )}
     >
       <div className="ring-border-surface relative aspect-[16/9] w-full overflow-hidden rounded-xl ring-[0.5px]">
-        <Image
+        {/* Post uploads use an environment-dependent host; a plain image avoids
+            Next remote-pattern configuration and works for admin sponsor art. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={slide.image ?? IMAGE}
           alt=""
-          fill
-          sizes="216px"
           draggable={false}
-          className="pointer-events-none object-cover"
-          priority={interactive}
+          className="pointer-events-none size-full object-cover"
         />
         <span className="absolute top-1.5 left-1.5 rounded-md bg-black/25 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-white/90 backdrop-blur-sm">
           Ad

@@ -45,7 +45,7 @@ const profileCountsQuery = `
 	select u.id, u.handle, u.name, u.created_at,
 	  u.bio, u.github, u.linkedin, u.website, u.cv_url, u.avatar_url,
 	  u.email_notifications, u.interests,
-	  (select count(*) from posts p where p.author_id = u.id),
+	  (select count(*) from posts p where p.author_id = u.id and p.status = 'approved'),
 	  (select count(*) from replies r where r.author_id = u.id),
 	  (select count(*) from replies r where r.author_id = u.id and r.accepted)
 	from users u where u.handle = $1`
@@ -124,7 +124,7 @@ func (s *server) getProfile(w http.ResponseWriter, r *http.Request) {
 // GET /api/users/{handle}/posts — their entries, newest first.
 func (s *server) listUserPosts(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.Query(r.Context(),
-		listQueryBase+` where u.handle = $2 order by p.created_at desc`,
+		listQueryBase+` where u.handle = $2 and p.status = 'approved' order by p.created_at desc`,
 		s.meID(r), r.PathValue("handle"))
 	if err != nil {
 		log.Printf("list user posts: %v", err)
@@ -144,7 +144,7 @@ func (s *server) listUserPosts(w http.ResponseWriter, r *http.Request) {
 func (s *server) listUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.Query(r.Context(), `
 		select u.id, u.handle, u.name, u.created_at, u.avatar_url,
-		  (select count(*) from posts p where p.author_id = u.id),
+		  (select count(*) from posts p where p.author_id = u.id and p.status = 'approved'),
 		  (select count(*) from replies rp where rp.author_id = u.id),
 		  (select count(*) from replies rp where rp.author_id = u.id and rp.accepted)
 		from users u`)

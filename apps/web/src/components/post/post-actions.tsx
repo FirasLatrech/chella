@@ -10,7 +10,7 @@ import { RichEditor } from "@/components/ui/rich-editor";
 import { OwnerMenu } from "./owner-menu";
 import { useEntry } from "@/lib/queries";
 import { invalidateEntryLists, removeEntryEverywhere } from "@/lib/cache";
-import { ApiError, deletePost, updatePost } from "@/lib/mutations";
+import { ApiError, deletePost, updatePost, uploadImage } from "@/lib/mutations";
 import { blocksToDoc } from "@/lib/blocks";
 import type { Block } from "@/lib/content";
 
@@ -33,10 +33,15 @@ export function PostActions({ postId }: { postId: string }) {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const save = useMutation({
     mutationFn: () =>
-      updatePost(postId, { title: title.trim(), blocks, body: text, tags }),
+      updatePost(postId, {
+        title: title.trim(), blocks, body: text, tags,
+        ...(newImageUrl ? { imageUrl: newImageUrl } : {}),
+      }),
     onSuccess: async () => {
       setEditing(false);
       invalidateEntryLists(queryClient, postId);
@@ -75,6 +80,7 @@ export function PostActions({ postId }: { postId: string }) {
     setTags(entry.tags);
     setBlocks(entry.blocks);
     setTagInput("");
+    setNewImageUrl("");
     setError("");
     setEditing(true);
   }
@@ -84,6 +90,19 @@ export function PostActions({ postId }: { postId: string }) {
     if (!tag || tags.includes(tag) || tags.length >= MAX_TAGS) return;
     setTags([...tags, tag]);
     setTagInput("");
+  }
+
+  async function addImage(file?: File) {
+    if (!file) return;
+    setUploadingImage(true);
+    setError("");
+    try {
+      setNewImageUrl(await uploadImage(file));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not upload image.");
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   return (
@@ -149,6 +168,19 @@ export function PostActions({ postId }: { postId: string }) {
               />
             ) : null}
           </div>
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-4">
+            <label className="text-muted-foreground cursor-pointer text-xs hover:text-foreground">
+              <span>{uploadingImage ? "Uploading image…" : newImageUrl ? "New image ready" : entry.image ? "Replace image" : "Add image"}</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="sr-only"
+                disabled={uploadingImage}
+                onChange={(e) => addImage(e.target.files?.[0])}
+              />
+            </label>
+            {newImageUrl ? <span className="text-brand-content text-xs">Image will be saved with this edit.</span> : null}
+          </div>
         </div>
 
         <footer className="flex shrink-0 items-center gap-3 px-2.5 pt-2.5 pb-1">
@@ -162,7 +194,7 @@ export function PostActions({ postId }: { postId: string }) {
             <Button
               variant="primary"
               size="sm"
-              disabled={save.isPending || !title.trim()}
+              disabled={save.isPending || uploadingImage || !title.trim()}
               onClick={() => save.mutate()}
             >
               {save.isPending ? "Saving…" : "Save changes"}

@@ -91,7 +91,7 @@ export function UserMenu() {
             "active:scale-95",
           )}
         >
-          <Avatar seed={me.handle} size="sm" />
+          <Avatar seed={me.handle} src={me.avatar || undefined} size="sm" />
         </MenuButton>
 
         <MenuItems
@@ -108,7 +108,7 @@ export function UserMenu() {
         >
           {/* Identity header */}
           <div className="flex items-center gap-2.5 px-2 py-2">
-            <Avatar seed={me.handle} size="md" />
+            <Avatar seed={me.handle} src={me.avatar || undefined} size="md" />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{me.name}</div>
               <div className="text-muted-foreground truncate text-xs">

@@ -305,7 +305,7 @@ export function Composer({
         )}
       >
         <div className="flex items-center gap-2.5 py-2 pr-2 pl-3">
-          <Avatar seed={me?.handle ?? "chelaa"} size="sm" />
+          <Avatar seed={me?.handle ?? "chelaa"} src={me?.avatar || undefined} size="sm" />
           {expanded ? (
             <input
               ref={titleRef}

@@ -67,6 +67,7 @@ func main() {
 	mux.HandleFunc("POST /api/admin/posts/{id}/approve", s.approvePost)
 	mux.HandleFunc("POST /api/admin/posts/{id}/reject", s.rejectPost)
 	mux.HandleFunc("POST /api/admin/users/{handle}/priority", s.setPriorityPosting)
+	mux.HandleFunc("GET /api/admin/users/priority", s.listPriorityPosters)
 	mux.HandleFunc("GET /api/sponsor", s.getSponsor)
 	mux.HandleFunc("PUT /api/admin/sponsor", s.updateSponsor)
 	mux.HandleFunc("POST /api/posts/{id}/replies", s.createReply)

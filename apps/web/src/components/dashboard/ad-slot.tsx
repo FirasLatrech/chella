@@ -16,7 +16,7 @@ export interface AdSlide {
   image?: string;
 }
 
-const SLIDES: AdSlide[] = [
+export const BUILT_IN_SPONSORS: AdSlide[] = [
   {
     id: "careerpath",
     title: "Your complete career workspace",
@@ -57,7 +57,7 @@ export function AdSlot({ collapsed }: { collapsed: boolean }) {
   const { data: sponsor } = useSponsor();
   const slides = sponsor?.active
     ? [{ id: "admin-sponsor", title: sponsor.title, sponsor: sponsor.name, href: sponsor.href, image: sponsor.imageUrl || undefined }]
-    : SLIDES;
+    : BUILT_IN_SPONSORS;
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 

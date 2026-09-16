@@ -10,6 +10,9 @@ import {
   BookmarkIcon,
   SidebarMinimalisticIcon,
   ShieldCheckIcon,
+  CheckCircleIcon,
+  UsersGroupRoundedIcon,
+  SpeakerIcon,
 } from "@solar-icons/react/bold-duotone";
 import { useState, type ComponentType } from "react";
 import { cn } from "@/lib/utils";
@@ -232,7 +235,12 @@ export function Sidebar({
       {me?.isAdmin ? (
         <NavGroup
           label="Manage"
-          items={[{ href: "/admin", label: "Admin", icon: ShieldCheckIcon }]}
+          items={[
+            { href: "/admin", label: "Overview", icon: ShieldCheckIcon },
+            { href: "/admin/review", label: "Review posts", icon: CheckCircleIcon },
+            { href: "/admin/access", label: "Posting access", icon: UsersGroupRoundedIcon },
+            { href: "/admin/sponsors", label: "Sponsors", icon: SpeakerIcon },
+          ]}
           pathname={pathname}
           collapsed={collapsed}
         />

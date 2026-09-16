@@ -272,6 +272,22 @@ export function usePendingPosts(enabled: boolean) {
   });
 }
 
+export interface PriorityPoster {
+  handle: string;
+  name: string;
+  avatar?: string;
+  isAdmin: boolean;
+}
+
+export function usePriorityPosters(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.priorityPosters,
+    queryFn: () => get<PriorityPoster[]>("/api/admin/users/priority"),
+    enabled,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export interface Sponsor {
   active: boolean;
   name: string;

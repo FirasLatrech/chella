@@ -23,6 +23,7 @@ export const queryKeys = {
   /** Tags that exist on real posts — backs the interest picker. */
   tags: ["tags"] as const,
   pendingPosts: ["admin", "pending-posts"] as const,
+  priorityPosters: ["admin", "priority-posters"] as const,
   sponsor: ["sponsor"] as const,
 };
 

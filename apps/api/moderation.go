@@ -29,6 +29,42 @@ type pendingPost struct {
 	Time    string `json:"time"`
 }
 
+type priorityPoster struct {
+	Handle  string `json:"handle"`
+	Name    string `json:"name"`
+	Avatar  string `json:"avatar,omitempty"`
+	IsAdmin bool   `json:"isAdmin"`
+}
+
+// GET /api/admin/users/priority — shows every user who can publish directly.
+func (s *server) listPriorityPosters(w http.ResponseWriter, r *http.Request) {
+	if s.requireAdmin(w, r) == nil {
+		return
+	}
+	rows, err := s.db.Query(r.Context(), `
+		select handle, name, avatar_url, is_admin
+		from users
+		where priority_posting = true
+		order by is_admin desc, lower(name), lower(handle)`)
+	if err != nil {
+		log.Printf("priority posters: %v", err)
+		writeJSON(w, 500, map[string]string{"error": "internal"})
+		return
+	}
+	defer rows.Close()
+	items := []priorityPoster{}
+	for rows.Next() {
+		var item priorityPoster
+		if err := rows.Scan(&item.Handle, &item.Name, &item.Avatar, &item.IsAdmin); err != nil {
+			log.Printf("scan priority poster: %v", err)
+			writeJSON(w, 500, map[string]string{"error": "internal"})
+			return
+		}
+		items = append(items, item)
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 // GET /api/admin/posts/pending — only admins can see unreviewed submissions.
 func (s *server) listPendingPosts(w http.ResponseWriter, r *http.Request) {
 	if s.requireAdmin(w, r) == nil {

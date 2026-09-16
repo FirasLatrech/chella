@@ -56,6 +56,10 @@ func main() {
 
 	st := newStorage()
 	s := &server{db: pool, storage: st, mail: newMailer(), boards: newBoardCache()}
+	ensureBotUser(ctx, s)
+
+	schedCtx, stopSched := context.WithCancel(context.Background())
+	s.startBotScheduler(schedCtx)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
@@ -75,6 +79,12 @@ func main() {
 	mux.HandleFunc("POST /api/admin/sponsors", s.createSponsor)
 	mux.HandleFunc("PUT /api/admin/sponsors/{id}", s.updateSponsorByID)
 	mux.HandleFunc("DELETE /api/admin/sponsors/{id}", s.deleteSponsor)
+	mux.HandleFunc("GET /api/admin/bot/config", s.getBotConfig)
+	mux.HandleFunc("PUT /api/admin/bot/config", s.updateBotConfig)
+	mux.HandleFunc("GET /api/admin/bot/suggestions", s.listBotSuggestions)
+	mux.HandleFunc("POST /api/admin/bot/run", s.runBotNow)
+	mux.HandleFunc("POST /api/admin/bot/suggestions/{id}/accept", s.acceptBotSuggestion)
+	mux.HandleFunc("POST /api/admin/bot/suggestions/{id}/reject", s.rejectBotSuggestion)
 	mux.HandleFunc("POST /api/posts/{id}/replies", s.createReply)
 	mux.HandleFunc("POST /api/posts/{id}/vote", s.votePost)
 	mux.HandleFunc("PATCH /api/posts/{id}", s.updatePost)
@@ -116,7 +126,7 @@ func main() {
 	mux.HandleFunc("PUT /api/me/profile", s.updateProfile)
 
 	addr := ":" + env("PORT", "4120")
-	srv := &http.Server{
+	httpSrv := &http.Server{
 		Addr:              addr,
 		Handler:           cors(mux),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -124,7 +134,7 @@ func main() {
 
 	go func() {
 		log.Printf("api listening on %s", addr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen: %v", err)
 		}
 	}()
@@ -133,9 +143,10 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
+	stopSched()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
 }

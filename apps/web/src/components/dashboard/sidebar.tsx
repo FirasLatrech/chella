@@ -13,6 +13,7 @@ import {
   CheckCircleIcon,
   UsersGroupRoundedIcon,
   SpeakerIcon,
+  MagicWandIcon,
 } from "@solar-icons/react/bold-duotone";
 import { useState, type ComponentType } from "react";
 import { cn } from "@/lib/utils";
@@ -252,6 +253,7 @@ export function Sidebar({
             { href: "/admin/review", label: "Review posts", icon: CheckCircleIcon },
             { href: "/admin/access", label: "Posting access", icon: UsersGroupRoundedIcon },
             { href: "/admin/sponsors", label: "Sponsors", icon: SpeakerIcon },
+            { href: "/admin/bot", label: "Bot posts", icon: MagicWandIcon },
           ]}
           pathname={pathname}
           collapsed={collapsed}

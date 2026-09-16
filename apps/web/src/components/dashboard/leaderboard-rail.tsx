@@ -1,3 +1,5 @@
+"use client";
+
 import {
   MedalRibbonStarIcon,
   BoltIcon,
@@ -5,8 +7,11 @@ import {
   ArrowUpIcon,
   ChatRoundDotsIcon,
 } from "@solar-icons/react/bold-duotone";
+import { useMemo } from "react";
 import { formatPoints } from "@/lib/format";
 import { Avatar } from "@/components/ui/avatar";
+import { boardParams } from "@/lib/keys";
+import { useLeaderboard } from "@/lib/queries";
 import {
   Card,
   CardBody,
@@ -21,9 +26,30 @@ const REP_RULES = [
   { icon: ChatRoundDotsIcon, label: "Answer a question", value: "+5" },
 ];
 
-export function LeaderboardRail({ entries }: { entries: LeaderboardEntry[] }) {
+const PERIOD_LABELS: Record<string, string> = {
+  today: "Today",
+  week: "This week",
+  month: "This month",
+  year: "This year",
+  all: "All time",
+};
+
+export function LeaderboardRail({ period, tag }: { period: string; tag: string }) {
+  const { data } = useLeaderboard(boardParams(period, tag));
+  const entries: LeaderboardEntry[] = useMemo(
+    () =>
+      (data ?? []).map((entry) => ({
+        rank: entry.rank,
+        name: entry.name,
+        handle: entry.handle,
+        tags: entry.tags,
+        reputation: period === "all" ? entry.reputation : entry.points,
+      })),
+    [data, period],
+  );
   const you = entries.find((e) => e.handle === "firas");
   const top = entries.slice(0, 3);
+  const periodLabel = PERIOD_LABELS[period] ?? "All time";
 
   return (
     <aside className="flex w-72 shrink-0 flex-col gap-4">
@@ -55,7 +81,7 @@ export function LeaderboardRail({ entries }: { entries: LeaderboardEntry[] }) {
       <Card>
         <CardHeader className="flex-row items-center gap-1.5">
           <MedalRibbonStarIcon size={15} className="text-amber-500" />
-          <CardTitle className="text-sm">Top 3</CardTitle>
+          <CardTitle className="text-sm">Top 3 · {periodLabel}</CardTitle>
         </CardHeader>
         <CardBody className="p-1.5">
           {top.map((user) => (
@@ -72,6 +98,11 @@ export function LeaderboardRail({ entries }: { entries: LeaderboardEntry[] }) {
               </span>
             </div>
           ))}
+          {top.length === 0 ? (
+            <p className="text-muted-foreground px-2 py-3 text-center text-xs">
+              No points earned {period === "today" ? "today" : "in this period"}.
+            </p>
+          ) : null}
         </CardBody>
       </Card>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { TabGroup } from "@headlessui/react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Tabs, TabItem } from "@/components/ui/tabs";
 import { Select } from "@/components/ui/select";
 import { LeaderboardList } from "./leaderboard-list";
@@ -22,10 +22,17 @@ const PERIODS = [
  * come from the server's single reputation formula; switching period or tag
  * re-queries the API with the previous board held while loading.
  */
-export function LeaderboardBrowser() {
-  const [periodIndex, setPeriodIndex] = useState(4); // All time
-  const [tag, setTag] = useState("all");
-
+export function LeaderboardBrowser({
+  periodIndex,
+  onPeriodChange,
+  tag,
+  onTagChange,
+}: {
+  periodIndex: number;
+  onPeriodChange: (index: number) => void;
+  tag: string;
+  onTagChange: (tag: string) => void;
+}) {
   const period = PERIODS[periodIndex].value;
   const { data, isFetching } = useLeaderboard(boardParams(period, tag));
 
@@ -54,7 +61,7 @@ export function LeaderboardBrowser() {
   }, [feed]);
 
   return (
-    <TabGroup selectedIndex={periodIndex} onChange={setPeriodIndex}>
+    <TabGroup selectedIndex={periodIndex} onChange={onPeriodChange}>
       {/* The page's ONE filter row: period (server-queried) and tag. It used
           to be doubled by a second, client-only period switcher inside the
           list — that one is gone. Sticky and opaque, like the feed's bands, so
@@ -73,7 +80,7 @@ export function LeaderboardBrowser() {
           }`}
         />
         <div className="ml-auto w-36">
-          <Select value={tag} onChange={setTag} options={tagOptions} size="sm" />
+          <Select value={tag} onChange={onTagChange} options={tagOptions} size="sm" />
         </div>
       </div>
 

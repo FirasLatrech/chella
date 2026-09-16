@@ -15,6 +15,7 @@ import { votePost, ApiError } from "@/lib/mutations";
 import { useEntry, queryKeys } from "@/lib/queries";
 import { invalidateEntryLists, patchEntryEverywhere } from "@/lib/cache";
 import type { ContentEntry } from "@/lib/content";
+import { nextVote, type VoteDirection } from "@/lib/vote";
 
 /*
  * Voting on the detail page, wired to the API through the React Query entry
@@ -31,7 +32,7 @@ export function VoteColumn({ postId }: { postId: string }) {
   const myVote = entry?.myVote ?? 0;
 
   const mutation = useMutation({
-    mutationFn: (direction: -1 | 0 | 1) => votePost(postId, direction),
+    mutationFn: (direction: VoteDirection) => votePost(postId, direction),
     onMutate: async (direction) => {
       const key = queryKeys.entry(postId);
       await queryClient.cancelQueries({ queryKey: key });
@@ -60,11 +61,18 @@ export function VoteColumn({ postId }: { postId: string }) {
         router.push("/login");
       }
     },
+    onSuccess: (result) => {
+      patchEntryEverywhere(queryClient, postId, (current) => ({
+        ...current,
+        votes: result.votes,
+        myVote: result.myVote,
+      }));
+    },
     onSettled: () => invalidateEntryLists(queryClient, postId),
   });
 
   function cast(next: -1 | 1) {
-    mutation.mutate(myVote === next ? 0 : next);
+    mutation.mutate(nextVote(myVote as VoteDirection, next));
   }
 
   return (
@@ -73,6 +81,7 @@ export function VoteColumn({ postId }: { postId: string }) {
         direction={1}
         active={myVote === 1}
         onCast={() => cast(1)}
+        disabled={mutation.isPending}
         sound={sound}
       />
 
@@ -99,6 +108,7 @@ export function VoteColumn({ postId }: { postId: string }) {
         direction={-1}
         active={myVote === -1}
         onCast={() => cast(-1)}
+        disabled={mutation.isPending}
         sound={sound}
       />
     </div>
@@ -110,11 +120,13 @@ function VoteButton({
   active,
   onCast,
   sound,
+  disabled,
 }: {
   direction: 1 | -1;
   active: boolean;
   onCast: () => void;
   sound: Record<string, () => void>;
+  disabled: boolean;
 }) {
   const up = direction === 1;
   const Idle = up ? AltArrowUpIcon : AltArrowDownIcon;
@@ -124,11 +136,12 @@ function VoteButton({
     <motion.button
       {...sound}
       onClick={onCast}
+      disabled={disabled}
       whileTap={{ scale: 0.85 }}
       aria-label={up ? "Upvote" : "Downvote"}
       aria-pressed={active}
       className={cn(
-        "relative grid size-8 cursor-pointer place-items-center rounded-lg transition-colors",
+        "relative grid size-8 cursor-pointer place-items-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         active
           ? up
             ? "bg-brand/10 text-brand-content"

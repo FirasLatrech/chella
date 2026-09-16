@@ -12,6 +12,7 @@ import { votePost, ApiError } from "@/lib/mutations";
 import { queryKeys } from "@/lib/queries";
 import { invalidateEntryLists, patchEntryEverywhere } from "@/lib/cache";
 import { registerVote, isChallenged, subscribeVoteGuard } from "@/lib/vote-guard";
+import { nextVote, type VoteDirection } from "@/lib/vote";
 import type { FeedEntry } from "./feed-item";
 
 /*
@@ -41,7 +42,7 @@ export function UpvoteButton({
   );
 
   const mutation = useMutation({
-    mutationFn: (direction: -1 | 0 | 1) => votePost(postId, direction),
+    mutationFn: (direction: VoteDirection) => votePost(postId, direction),
     onMutate: async (direction) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.feed });
       const previous = queryClient.getQueryData<FeedEntry[]>(queryKeys.feed);
@@ -68,6 +69,13 @@ export function UpvoteButton({
         router.push("/login");
       }
     },
+    onSuccess: (result) => {
+      patchEntryEverywhere(queryClient, postId, (entry) => ({
+        ...entry,
+        votes: result.votes,
+        myVote: result.myVote,
+      }));
+    },
     onSettled: () => {
       invalidateEntryLists(queryClient, postId);
     },
@@ -77,11 +85,10 @@ export function UpvoteButton({
     return (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const isActive = direction === 1 ? up : down;
-      // A no-op re-vote (toggling off) doesn't count toward the rate guard —
-      // only casting a new vote does.
-      if (!isActive && !registerVote()) return;
-      mutation.mutate(isActive ? 0 : direction);
+      const target = nextVote(myVote as VoteDirection, direction);
+      // Clearing a vote does not count toward the rate guard.
+      if (target !== 0 && !registerVote()) return;
+      mutation.mutate(target);
     };
   }
 
@@ -91,7 +98,7 @@ export function UpvoteButton({
         {...sound}
         type="button"
         onClick={vote(1)}
-        disabled={challenged}
+        disabled={challenged || mutation.isPending}
         aria-label="Upvote"
         aria-pressed={up}
         className={cn(
@@ -137,7 +144,7 @@ export function UpvoteButton({
         {...sound}
         type="button"
         onClick={vote(-1)}
-        disabled={challenged}
+        disabled={challenged || mutation.isPending}
         aria-label="Downvote"
         aria-pressed={down}
         className={cn(

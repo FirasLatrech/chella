@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func (s *server) requireUser(w http.ResponseWriter, r *http.Request) *user {
@@ -199,6 +202,16 @@ func (s *server) createReply(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]string{"id": fmt.Sprint(id)})
 }
 
+// nextPostVote makes vote changes one step at a time. An existing vote is
+// always cleared before its opposite can be cast, so +1 -> -1 never changes
+// the visible score by two in one click.
+func nextPostVote(previous, requested int) int {
+	if requested == 0 || previous != 0 {
+		return 0
+	}
+	return requested
+}
+
 // POST /api/posts/{id}/vote — {direction: -1 | 0 | 1}; 0 retracts.
 // posts.votes stays the seeded base; totals are base + sum(post_votes),
 // so re-votes and retractions can never corrupt the aggregate.
@@ -218,40 +231,74 @@ func (s *server) votePost(w http.ResponseWriter, r *http.Request) {
 	}
 	postID := r.PathValue("id")
 
-	var prev int
-	s.db.QueryRow(r.Context(),
-		`select direction from post_votes where user_id = $1 and post_id = $2`,
-		u.ID, postID).Scan(&prev)
+	tx, err := s.db.Begin(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+	defer tx.Rollback(r.Context())
 
-	var err error
-	if in.Direction == 0 {
-		_, err = s.db.Exec(r.Context(),
+	// Lock the post for this short transaction. This serializes simultaneous
+	// vote changes and keeps the returned total authoritative.
+	var baseVotes int
+	err = tx.QueryRow(r.Context(), `select votes from posts where id = $1 for update`, postID).Scan(&baseVotes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "post not found"})
+		return
+	}
+	if err != nil {
+		log.Printf("lock post vote: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+
+	var previous int
+	err = tx.QueryRow(r.Context(),
+		`select direction from post_votes where user_id = $1 and post_id = $2`,
+		u.ID, postID).Scan(&previous)
+	if errors.Is(err, pgx.ErrNoRows) {
+		previous = 0
+	} else if err != nil {
+		log.Printf("read previous vote: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+
+	next := nextPostVote(previous, in.Direction)
+	if next == 0 {
+		_, err = tx.Exec(r.Context(),
 			`delete from post_votes where user_id = $1 and post_id = $2`, u.ID, postID)
 	} else {
-		_, err = s.db.Exec(r.Context(), `
+		_, err = tx.Exec(r.Context(), `
 			insert into post_votes (user_id, post_id, direction)
 			values ($1, $2, $3)
 			on conflict (user_id, post_id) do update set direction = $3`,
-			u.ID, postID, in.Direction)
-	}
-	if err == nil && in.Direction == 1 && prev != 1 {
-		var pid, authorID int64
-		if s.db.QueryRow(r.Context(),
-			`select id, author_id from posts where id = $1`, postID).
-			Scan(&pid, &authorID) == nil {
-			s.notify(r.Context(), authorID, u.ID, "vote", pid, nil)
-		}
+			u.ID, postID, next)
 	}
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "post not found"})
+		log.Printf("write post vote: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
 		return
 	}
 
 	var votes int
-	s.db.QueryRow(r.Context(), `
-		select p.votes + coalesce((select sum(direction) from post_votes where post_id = p.id), 0)
-		from posts p where p.id = $1`, postID).Scan(&votes)
-	writeJSON(w, http.StatusOK, map[string]int{"votes": votes, "myVote": in.Direction})
+	if err := tx.QueryRow(r.Context(), `select $2 + coalesce(sum(direction), 0) from post_votes where post_id = $1`, postID, baseVotes).Scan(&votes); err != nil {
+		log.Printf("total post votes: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+
+	if next == 1 && previous != 1 {
+		var pid, authorID int64
+		if s.db.QueryRow(r.Context(), `select id, author_id from posts where id = $1`, postID).Scan(&pid, &authorID) == nil {
+			s.notify(r.Context(), authorID, u.ID, "vote", pid, nil)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"votes": votes, "myVote": next})
 }
 
 // POST /api/replies/{id}/vote — {up: bool}; up-only, like the UI.
